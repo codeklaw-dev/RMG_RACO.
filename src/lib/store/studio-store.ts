@@ -131,7 +131,7 @@ export function migrateState(raw: unknown): Persisted {
       ...fixture,
       ...(prev ? { name: prev.name ?? fixture.name, description: prev.description ?? fixture.description, status: prev.status ?? fixture.status } : {}),
       conceptIds: [...new Set(ids)].filter((id) => known.has(id)),
-      lookMeta: prev?.lookMeta ?? {},
+      lookMeta: prev?.lookMeta ?? fixture.lookMeta ?? {},
       creativeDirection: prev?.creativeDirection ?? fixture.creativeDirection ?? "",
       notes: prev?.notes ?? fixture.notes ?? "",
       groups: prev?.groups ?? fixture.groups ?? [],

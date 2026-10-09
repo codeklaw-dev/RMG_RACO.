@@ -104,6 +104,8 @@ export const CONCEPTS: Concept[] = SEEDS.map(([id, title, category, palette, fab
   createdAt: new Date(Date.UTC(2026, 9, 8 - (i % 7), 9 + i)).toISOString(),
 }));
 
+const AW26_SOFT = new Set(["dress", "knitwear", "skirt", "trousers"]);
+
 export const COLLECTIONS: Collection[] = [
   {
     id: "col_aw26",
@@ -116,6 +118,9 @@ export const COLLECTIONS: Collection[] = [
     notes: "",
     groups: [{ id: "grp_outer", name: "Outerwear & tailoring" }, { id: "grp_soft", name: "Soft columns" }],
     conceptIds: CONCEPTS.filter((c) => c.collectionId === "col_aw26").map((c) => c.id),
+    lookMeta: Object.fromEntries(
+      CONCEPTS.filter((c) => c.collectionId === "col_aw26").map((c) => [c.id, { note: "", tags: [], groupId: AW26_SOFT.has(c.category) ? "grp_soft" : "grp_outer" }]),
+    ),
     updatedAt: "2026-10-08T16:40:00Z",
   },
   {

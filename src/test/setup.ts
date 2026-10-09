@@ -1,5 +1,9 @@
 import "@testing-library/jest-dom/vitest";
-import { vi } from "vitest";
+import { cleanup } from "@testing-library/react";
+import { afterEach, vi } from "vitest";
+
+// Vitest runs without globals, so Testing Library's auto-cleanup isn't registered.
+afterEach(() => cleanup());
 
 // jsdom lacks matchMedia (used by GSAP matchMedia and layout hooks).
 if (!window.matchMedia) {

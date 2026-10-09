@@ -78,7 +78,7 @@ export function EditorView() {
             <Button size="sm" className="rounded-none" onClick={() => setInspectorOpen(true)}><PanelRight /> Inspect</Button>
           </div>
         </div>
-        <div className="min-h-0 flex-1"><DesignCanvas concept={concept} version={version} compareTo={compareTo} /></div>
+        <div className="flex min-h-0 flex-1 flex-col"><DesignCanvas concept={concept} version={version} compareTo={compareTo} /></div>
       </section>
       <aside aria-label="Design inspector" className="hidden min-h-0 border-l border-hairline bg-card xl:block">{inspector}</aside>
       {!desktop && (

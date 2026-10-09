@@ -54,7 +54,6 @@ const MATERIAL_WORDS: Record<string, Material> = {
   nylon: "technical",
 };
 
-const has = (text: string, term: string) => new RegExp(`(^|[^a-z])${term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z]|$)`, "i").test(text);
 
 /** Lower-third regions target the accent band in the schematic preview. */
 export const targetsAccent = (region: Region | null) => Boolean(region && region.y + region.h / 2 > 0.66);
@@ -67,18 +66,38 @@ export interface ParsedEdit {
 
 const UNSUPPORTED_HINTS = ["sleeve", "collar", "pocket", "hem", "neckline", "lapel", "cuff", "print", "pattern", "embroider", "length"];
 
+/**
+ * Drop phrases naming what is being replaced ("instead of wool", "rather than
+ * navy", "not oversized", "from black to …") so only the target term matches.
+ */
+export function stripReplaced(text: string) {
+  return text
+    .replace(/\b(instead of|rather than|in place of|not|no longer|replacing)\s+(the\s+)?[a-z-]+(\s+[a-z-]+)?/g, " ")
+    .replace(/\bfrom\s+(the\s+)?[a-z-]+(\s+[a-z-]+)?\s+to\b/g, " to");
+}
+
+/** First term (in reading order) that the text mentions and that differs from the current value. */
+function firstNew<T>(text: string, terms: [string, T][], isCurrent: (v: T) => boolean): T | undefined {
+  const hits = terms
+    .map(([w, v]) => ({ v, at: text.search(new RegExp(`(^|[^a-z])${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z]|$)`, "i")) }))
+    .filter((h) => h.at >= 0)
+    .sort((a, b) => a.at - b.at);
+  return (hits.find((h) => !isCurrent(h.v)) ?? hits[0])?.v;
+}
+
 export function parseInstruction(instruction: string, base: ConceptSnapshot, region: Region | null = null): ParsedEdit {
-  const text = instruction.toLowerCase();
+  const raw = instruction.toLowerCase();
+  const text = stripReplaced(raw);
   const changes: VersionChange[] = [];
 
-  const silhouette = Object.entries(SILHOUETTE_WORDS).find(([w]) => has(text, w))?.[1];
+  const silhouette = firstNew(text, Object.entries(SILHOUETTE_WORDS), (v) => v === base.silhouette);
   if (silhouette && silhouette !== base.silhouette) changes.push({ attribute: "silhouette", from: base.silhouette, to: silhouette });
 
-  const material = Object.entries(MATERIAL_WORDS).find(([w]) => has(text, w))?.[1];
   const currentMaterials = materialsFromFabrics(base.fabrics);
+  const material = firstNew(text, Object.entries(MATERIAL_WORDS), (v) => currentMaterials.includes(v));
   if (material && !currentMaterials.includes(material)) changes.push({ attribute: "material", from: base.fabrics.join(", ") || "—", to: FABRIC_FOR[material] });
 
-  const colour = EDIT_COLOURS.find((c) => has(text, c.name.toLowerCase()));
+  const colour = firstNew(text, EDIT_COLOURS.map((c) => [c.name.toLowerCase(), c] as [string, PaletteColor]), (c) => base.palette.some((p) => p.hex.toUpperCase() === c.hex.toUpperCase()));
   if (colour) {
     const accent = targetsAccent(region) || /\b(accent|trim|contrast|lower|hem band)\b/.test(text);
     const idx = accent ? 1 : 0;
@@ -103,7 +122,7 @@ export function parseInstruction(instruction: string, base: ConceptSnapshot, reg
     changes.push({ attribute: "detail", from: replaced ?? "—", to: detail });
   }
 
-  const unsupported = UNSUPPORTED_HINTS.filter((w) => text.includes(w));
+  const unsupported = UNSUPPORTED_HINTS.filter((w) => raw.includes(w));
   return { changes, unsupported };
 }
 

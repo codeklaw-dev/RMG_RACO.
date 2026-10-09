@@ -61,7 +61,7 @@ export function DesignCanvas({ concept, version, compareTo }: { concept: Concept
   );
 
   return (
-    <div className="flex h-full min-h-[420px] flex-col">
+    <div className="flex min-h-[420px] flex-1 flex-col">
       <div role="toolbar" aria-label="Canvas tools" className="flex flex-wrap items-center gap-1 border-b border-hairline px-3 py-2">
         <Button variant="ghost" size="icon-sm" aria-label="Zoom out" onClick={() => setView(zoom - 0.25)} disabled={zoom <= MIN}><Minus /></Button>
         <span className="t-meta w-12 text-center" aria-live="polite">{Math.round(zoom * 100)}%</span>
