@@ -8,6 +8,9 @@ The demo adapter composes an **original schematic avatar** (SVG, no photograph, 
 ## Workflow
 Select garment (search, collection filter, version) → model (Avatar A/B/C) → pose (only poses the model supports) → background → optional colour → **Generate preview** (a `try_on` job on the shared job state machine: queued → running → succeeded/failed/canceled, cancellable) → inspect → **Save preview** → select two saved previews → **Compare**.
 
+## Job handling
+`useTryOnJob` runs one job at a time (single-flight start). `pollJob` (`lib/services/poll-job.ts`) polls sequentially — the next request starts only after the previous settles — and accepts an `AbortSignal`. Cancel, switching garment/version, and unmount abort the run and cancel the provider job, so no stale progress, result or preview reaches state or the store.
+
 ## Data
 - `FitModel` (`lib/fixtures/fit-models.ts`): id, name, poses, view, representation, provenance, usage rights.
 - `TryOnPreview` (`lib/types/handoff.ts`): concept, version + number, model, pose, background, colour, garment snapshot subset, job id, fixed label, provenance, saved flag. Persisted in `raco-handoff` (metadata only); previews are redrawn, never stored as images.

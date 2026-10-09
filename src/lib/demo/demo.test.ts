@@ -8,7 +8,7 @@ import { useBrandStore } from "@/lib/store/brand-store";
 import { useDemoStore } from "@/lib/store/demo-store";
 import { useHandoffStore } from "@/lib/store/handoff-store";
 import { useStudioStore } from "@/lib/store/studio-store";
-import { resetDemo, userWorkSummary } from "./reset";
+import { describeImpact, resetDemo, resetImpact } from "./reset";
 import { demoScenes } from "./scenes";
 
 const routeExists = (href: string) => {
@@ -79,17 +79,73 @@ describe("capability registry accuracy", () => {
 });
 
 describe("reset demo", () => {
-  it("reports custom work and restores the curated dataset", () => {
-    expect(userWorkSummary()).toEqual({});
-    useStudioStore.getState().saveRevision("cpt_03", { ...useStudioStore.getState().versions.find((v) => v.id === "cpt_03_v1")!.snapshot, silhouette: "fitted" });
+  const impact = () => Object.fromEntries(resetImpact().map((i) => [i.area, i]));
+
+  it("reports nothing for a clean session, including after a persist/rehydrate round trip", async () => {
+    expect(resetImpact()).toEqual([]);
+    useStudioStore.getState().toggleFavorite("cpt_02");
+    useStudioStore.getState().toggleFavorite("cpt_02"); // back to original
+    await useStudioStore.persist.rehydrate();
+    await useBrandStore.persist.rehydrate();
+    await useHandoffStore.persist.rehydrate();
+    expect(resetImpact()).toEqual([]);
+  });
+
+  it("detects additions", () => {
+    const st = useStudioStore.getState();
+    st.saveRevision("cpt_03", { ...st.versions.find((v) => v.id === "cpt_03_v1")!.snapshot, silhouette: "fitted" });
     useBrandStore.getState().edit("x", (c) => ({ ...c, name: "Changed" }));
     useHandoffStore.getState().createBrief("cpt_03", "cpt_03_v1", "org_serein");
-    expect(userWorkSummary()).toMatchObject({ "design versions": 1, "Brand DNA versions": 1, "technical briefs": 1 });
+    const i = impact();
+    expect(i["Design versions"]).toMatchObject({ added: 1, modified: 0, removed: 0 });
+    expect(i["Brand DNA versions"]).toMatchObject({ added: 1 });
+    expect(i["Technical briefs"]).toMatchObject({ added: 1 });
+    expect(i["Concepts"]).toMatchObject({ modified: 1, examples: ["Cocoon cape blazer"] }); // head moved to v2
+  });
+
+  it("detects modifications to existing records", () => {
+    const st = useStudioStore.getState();
+    st.moveLook("col_aw26", "cpt_01", 1); // board order
+    st.updateAnnotation("ann_demo_2", { text: "Edited note" });
+    st.toggleFavorite("cpt_05");
+    useHandoffStore.getState().updateBrief("brief_demo_1", (b) => ({ ...b, construction: { ...b.construction, sleeves: "Two-piece sleeve" } }));
+    useHandoffStore.getState().setPreviewSaved("tryon_demo_2", false);
+    useBrandStore.getState().updateReference("ref_06", { approval: "approved" });
+    const i = impact();
+    expect(i["Collection boards"]).toMatchObject({ modified: 1, examples: ["Quiet Architecture"] });
+    expect(i["Annotations"]).toMatchObject({ modified: 1, examples: ["“Edited note”"] });
+    expect(i["Concepts"]).toMatchObject({ modified: 1 });
+    expect(i["Technical briefs"]).toMatchObject({ modified: 1, added: 0 });
+    expect(i["Try-on previews"]).toMatchObject({ modified: 1 });
+    expect(i["Brand references"]).toMatchObject({ modified: 1 });
+  });
+
+  it("detects removals of curated records", () => {
+    useStudioStore.getState().deleteAnnotation("ann_demo_1");
+    useHandoffStore.getState().removePreview("tryon_demo_3");
+    useStudioStore.getState().removeFromCollection("col_resort", "cpt_08");
+    const i = impact();
+    expect(i["Annotations"]).toMatchObject({ removed: 1 });
+    expect(i["Try-on previews"]).toMatchObject({ removed: 1 });
+    expect(i["Collection boards"]).toMatchObject({ modified: 1, examples: ["Salt & Linen"] });
+  });
+
+  it("restores the curated dataset", () => {
+    useStudioStore.getState().moveLook("col_aw26", "cpt_01", 1);
+    useHandoffStore.getState().updateBrief("brief_demo_1", (b) => ({ ...b, construction: { ...b.construction, sleeves: "x" } }));
+    expect(resetImpact().length).toBe(2);
     resetDemo();
-    expect(userWorkSummary()).toEqual({});
+    expect(resetImpact()).toEqual([]);
     expect(useStudioStore.getState().concepts.find((c) => c.id === DEMO_CONCEPT_ID)!.currentVersionId).toBe("cpt_01_v2");
     expect(useHandoffStore.getState().briefs.map((b) => b.id)).toEqual(["brief_demo_1"]);
   });
+
+  it("describes impact explicitly", () => {
+    useStudioStore.getState().deleteAnnotation("ann_demo_1");
+    useStudioStore.getState().updateAnnotation("ann_demo_2", { text: "x" });
+    expect(describeImpact(resetImpact().find((i) => i.area === "Annotations")!)).toBe("1 modified, 1 removed");
+  });
+
   it("ships a consistent curated dataset (stable ids, valid relationships)", () => {
     const s = useStudioStore.getState();
     const ids = new Set(s.versions.map((v) => v.id));

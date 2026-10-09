@@ -82,7 +82,7 @@ describe("complete client demonstration (clean session)", () => {
     expect(missingInfo(techBrief).length).toBe(before - 2);
     // 16. Export.
     const doc = buildBriefDocument(techBrief, { concept: head, version: rev, collectionNames: ["Quiet Architecture"], brandVersion: 3, conceptReview: "Draft", generatedAt: "now" });
-    const pdf = (await renderBriefPdf(doc, [])).output();
+    const pdf = (await renderBriefPdf(doc, [], { compress: false })).output();
     expect(pdf).toContain("Preliminary Garment Development Brief");
     expect(pdf).toContain("Two-piece set-in sleeve");
     // 17. Pilot architecture and limitations.

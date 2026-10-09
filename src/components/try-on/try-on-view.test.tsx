@@ -63,4 +63,17 @@ describe("Virtual Try-On", { timeout: 20_000 }, () => {
     fireEvent.click(screen.getByRole("button", { name: /Compare 2\/2/ }));
     expect(screen.getAllByRole("img", { name: /Conceptual fitting preview/ }).length).toBeGreaterThanOrEqual(2 + picks.length);
   });
+
+  it("switching garment mid-generation discards the run (no stale preview)", async () => {
+    const { rerender } = render(<TryOnView />);
+    await advance(10);
+    const controls = screen.getAllByRole("complementary", { name: "Fitting controls" })[0];
+    fireEvent.click(within(controls).getByRole("button", { name: /Generate preview/ }));
+    await advance(1200);
+    query = "concept=cpt_03";
+    rerender(<TryOnView />);
+    await advance(8000);
+    expect(useHandoffStore.getState().previews.filter((p) => p.jobId)).toHaveLength(0);
+    expect(screen.getByRole("status")).toHaveTextContent(/Avatar only/);
+  });
 });

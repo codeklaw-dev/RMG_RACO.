@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Bookmark, Columns2, Loader2, Maximize, Minus, PanelLeft, Plus, Shirt, SlidersHorizontal, Square, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useShallow } from "zustand/react/shallow";
@@ -9,6 +9,7 @@ import { GarmentPlaceholder } from "@/components/shared/garment-placeholder";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { ChipRadioGroup } from "@/components/studio/controls";
 import { newIdempotencyKey } from "@/components/studio/use-job-runner";
+import { useTryOnJob } from "./use-try-on-job";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useMediaQuery } from "@/hooks/use-media-query";
@@ -16,11 +17,10 @@ import { REVIEW_LABEL } from "@/lib/editor/review";
 import { versionsOf } from "@/lib/editor/versions";
 import { ORG } from "@/lib/fixtures";
 import { BACKGROUNDS, FIT_MODELS, POSE_LABEL } from "@/lib/fixtures/fit-models";
-import { getAIProvider, ProviderError } from "@/lib/services";
 import { isActive } from "@/lib/services/job-machine";
 import { useHandoffStore } from "@/lib/store/handoff-store";
 import { useStoreHydrated, useStudioStore } from "@/lib/store/studio-store";
-import type { Concept, GenerationJob } from "@/lib/types/domain";
+import type { Concept } from "@/lib/types/domain";
 import { TRY_ON_LABEL, type FitBackground, type FitPose, type TryOnPreview } from "@/lib/types/handoff";
 import { cn } from "@/lib/utils";
 import { FittingComposite } from "./fitting-composite";
@@ -93,62 +93,36 @@ export function TryOnView() {
   const versions = useStudioStore(useShallow((s) => (concept ? versionsOf(s.versions, concept.id) : [])));
   const version = versions.find((v) => v.id === params.get("version")) ?? versions.find((v) => v.id === concept?.currentVersionId) ?? null;
   const previews = useHandoffStore((s) => s.previews);
-  const { addPreview, setPreviewSaved } = useHandoffStore.getState();
+  const { setPreviewSaved } = useHandoffStore.getState();
   const [modelId, setModelId] = useState(FIT_MODELS[0].id);
   const [pose, setPose] = useState<FitPose>("standing");
   const [background, setBackground] = useState<FitBackground>("paper");
   const [colour, setColour] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
-  const [job, setJob] = useState<GenerationJob | null>(null);
-  const [result, setResult] = useState<TryOnPreview | null>(null);
+  const { job, result, setResult, start, cancel, reset } = useTryOnJob();
   const [compareIds, setCompareIds] = useState<string[]>([]);
   const [compareMode, setCompareMode] = useState(false);
   const [pickOpen, setPickOpen] = useState(false);
   const [ctrlOpen, setCtrlOpen] = useState(false);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const model = FIT_MODELS.find((m) => m.id === modelId)!;
   const running = Boolean(job && isActive(job.status));
   const mine = previews.filter((p) => p.orgId === ORG.id);
   const compared = compareIds.map((id) => mine.find((p) => p.id === id)).filter((p): p is TryOnPreview => Boolean(p));
 
-  useEffect(() => () => { if (timer.current) clearInterval(timer.current); }, []);
-  useEffect(() => { setResult(null); setColour(null); }, [conceptId, version?.id]);
+  // Switching garment or version abandons any in-flight run.
+  useEffect(() => { reset(); setColour(null); }, [conceptId, version?.id, reset]);
   useEffect(() => { if (!model.poses.includes(pose)) setPose(model.poses[0]); }, [model, pose]);
 
   const pick = (c: Concept) => { router.push(tryOnHref(c.id)); setPickOpen(false); };
 
   const generate = async () => {
-    if (!concept || !version) return;
-    const provider = getAIProvider();
-    try {
-      const { jobId } = await provider.virtualTryOn({
-        orgId: concept.orgId, conceptId: concept.id, versionId: version.id, modelId, pose, background, colour,
-        garment: { title: version.snapshot.title, silhouette: version.snapshot.silhouette, palette: version.snapshot.palette, seed: version.snapshot.seed },
-        consentConfirmed: true, idempotencyKey: newIdempotencyKey(),
-      });
-      setResult(null);
-      setJob(await provider.getJob(jobId));
-      setCtrlOpen(false);
-      timer.current = setInterval(async () => {
-        const j = await provider.getJob(jobId);
-        setJob(j);
-        if (isActive(j.status)) return;
-        clearInterval(timer.current!);
-        const p = await provider.getTryOnResult(jobId);
-        if (!p) return void toast.error("Preview did not complete");
-        const res = addPreview(p);
-        if (res.ok) { setResult(useHandoffStore.getState().previews.find((x) => x.id === p.id)!); toast.success("Conceptual preview ready"); }
-        else toast.error(res.error);
-      }, 250);
-    } catch (e) {
-      toast.error(e instanceof ProviderError ? e.message : "Could not start the preview");
-    }
-  };
-  const cancel = async () => {
-    if (!job) return;
-    await getAIProvider().cancelJob(job.id);
-    if (timer.current) clearInterval(timer.current);
-    setJob(await getAIProvider().getJob(job.id));
+    if (!concept || !version || running) return;
+    setCtrlOpen(false);
+    await start({
+      orgId: concept.orgId, conceptId: concept.id, versionId: version.id, modelId, pose, background, colour,
+      garment: { title: version.snapshot.title, silhouette: version.snapshot.silhouette, palette: version.snapshot.palette, seed: version.snapshot.seed },
+      consentConfirmed: true, idempotencyKey: newIdempotencyKey(),
+    });
   };
 
   if (!hydrated) return <div className="h-[70vh] animate-pulse bg-paper-2" />;

@@ -11,4 +11,6 @@
 | Approvals | Brand, concept, collection and technical approvals are simulated local actions; no authentication |
 | Persistence | Browser localStorage (metadata only); single user; reference images live in the tab only |
 | References | Uploaded images aren't analysed or uploaded; unavailable after reload until re-attached |
-| Export | PDF generated locally in the browser |
+| Export | PDF generated locally in the browser; non-Latin scripts (CJK, Greek, Cyrillic) are replaced with “?” and flagged, because no Unicode font is embedded |
+| Reset | Reset impact compares stored records with the curated baseline (added / modified / removed). Unsaved form edits and in-tab reference images are not listed |
+| Polling | Try-on polling is sequential and abortable; Studio generation and Editor refinement still use their earlier interval pollers (no known defect, not yet migrated) |

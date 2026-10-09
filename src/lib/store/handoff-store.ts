@@ -25,12 +25,12 @@ interface HandoffState {
   reset: () => void;
 }
 
-const initial = () => ({ previews: DEMO_PREVIEWS, briefs: DEMO_BRIEFS });
+export const curatedHandoffState = () => ({ previews: DEMO_PREVIEWS, briefs: DEMO_BRIEFS });
 
 export const useHandoffStore = create<HandoffState>()(
   persist(
     (set, get) => ({
-      ...initial(),
+      ...curatedHandoffState(),
       addPreview: (p) => {
         const { versions, concepts } = useStudioStore.getState();
         const concept = concepts.find((c) => c.id === p.conceptId);
@@ -74,7 +74,7 @@ export const useHandoffStore = create<HandoffState>()(
         set((s) => ({ briefs: s.briefs.map((x) => (x.id === id ? { ...x, status: to, reviews: [r, ...x.reviews], updatedAt: r.at } : x)) }));
         return { ok: true, value: id };
       },
-      reset: () => set(initial()),
+      reset: () => set(curatedHandoffState()),
     }),
     {
       name: "raco-handoff",

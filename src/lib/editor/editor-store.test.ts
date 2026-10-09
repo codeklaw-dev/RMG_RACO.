@@ -170,9 +170,16 @@ describe("persistence migration to v5", () => {
       annotations: [{ id: "a1", versionId: "missing" }],
     });
     const c = migrated.concepts.find((x) => x.id === "cpt_01")!;
-    expect(c).toMatchObject({ title: "Renamed wrap coat", status: "in_review", favorite: true });
-    expect(migrated.versions.filter((v) => v.conceptId === "cpt_01")).toHaveLength(1);
+    expect(c).toMatchObject({ title: "Renamed wrap coat", status: "in_review", favorite: true, currentVersionId: "cpt_01_v1" });
+    // Curated v2 is appended (append-only) so demo briefs/previews resolve; the head stays the user's.
+    expect(migrated.versions.filter((v) => v.conceptId === "cpt_01").map((v) => v.id)).toEqual(["cpt_01_v1", "cpt_01_v2"]);
     expect(migrated.collections.find((x) => x.id === "col_aw26")!.conceptIds).toEqual(["cpt_02", "cpt_01"]);
+    expect(migrated.annotations.map((a) => a.id)).toEqual(["ann_demo_1", "ann_demo_2"]); // orphan "a1" dropped
+    expect(migrated.reviews.map((r) => r.id)).toEqual(["rev_demo_2", "rev_demo_1"]);
+  });
+
+  it("doesn't resurrect curated records a user removed after they were seeded", () => {
+    const migrated = migrateState({ concepts: CONCEPTS, annotations: [], reviews: [], demoSeeded: true });
     expect(migrated.annotations).toEqual([]);
     expect(migrated.reviews).toEqual([]);
   });

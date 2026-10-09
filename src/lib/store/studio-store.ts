@@ -93,7 +93,7 @@ export const STORE_VERSION = 5;
 /** Keys written by earlier builds; read once, migrated, then removed. */
 const LEGACY_KEYS = ["raco-studio-v2", "raco-studio-v1"];
 
-type Persisted = Pick<StudioState, "concepts" | "versions" | "annotations" | "reviews" | "exceptions" | "collections" | "jobs" | "activeJobId">;
+type Persisted = Pick<StudioState, "concepts" | "versions" | "annotations" | "reviews" | "exceptions" | "collections" | "jobs" | "activeJobId"> & { demoSeeded?: boolean };
 
 const FIXTURE_BY_ID = new Map(CONCEPTS.map((c) => [c.id, c]));
 const LEGACY_STATUS: Record<string, Concept["status"]> = { shortlisted: "in_review" };
@@ -118,6 +118,14 @@ function normalizeConcept(raw: Partial<Concept>): Concept | null {
 }
 
 const arr = <T,>(x: unknown): T[] => (Array.isArray(x) ? (x as T[]) : []);
+
+/** Add curated records missing from saved data that predates them (by id; never overwrites). */
+function withDemo<T extends { id: string }>(saved: T[], demo: T[], raw: unknown): T[] {
+  // Only backfill payloads written before the demo history existed (no marker yet).
+  const marked = Boolean(raw && typeof raw === "object" && (raw as { demoSeeded?: boolean }).demoSeeded);
+  if (marked) return saved;
+  return [...saved, ...demo.filter((d) => !saved.some((x) => x.id === d.id))];
+}
 
 export function migrateState(raw: unknown): Persisted {
   const s = (raw && typeof raw === "object" ? raw : {}) as Partial<Persisted>;
@@ -154,17 +162,27 @@ export function migrateState(raw: unknown): Persisted {
       provenance: v.provenance ?? "Migrated from an earlier demo session",
     }));
   for (const c of concepts) if (!versions.some((v) => v.conceptId === c.id && v.parentId === null)) versions.push(originalVersion(c));
+  // Curated demo history (added in Phase 5) is appended to older saved data so
+  // demo briefs and previews that reference it resolve. Append-only: the
+  // user's current version and existing records are never changed.
+  for (const dv of DEMO_VERSIONS) {
+    const ownMax = Math.max(0, ...versions.filter((v) => v.conceptId === dv.conceptId).map((v) => v.number));
+    if (known.has(dv.conceptId) && !versions.some((v) => v.id === dv.id) && versions.some((v) => v.id === dv.parentId)) {
+      versions.push({ ...dv, number: Math.max(dv.number, ownMax + 1) });
+    }
+  }
   const fixed = concepts.map((c) => (versions.some((v) => v.id === c.currentVersionId) ? c : { ...c, currentVersionId: `${c.id}_v1` }));
   const versionIds = new Set(versions.map((v) => v.id));
   return {
     concepts: fixed,
     versions,
-    annotations: arr<DesignAnnotation>(s.annotations).filter((a) => versionIds.has(a?.versionId)),
-    reviews: arr<DesignReview>(s.reviews).filter((r) => known.has(r?.conceptId)),
+    annotations: withDemo(arr<DesignAnnotation>(s.annotations), DEMO_ANNOTATIONS, raw).filter((a) => versionIds.has(a?.versionId)),
+    reviews: withDemo(arr<DesignReview>(s.reviews), DEMO_REVIEWS, raw).filter((r) => known.has(r?.conceptId) && versionIds.has(r.versionId)),
     exceptions: arr<BrandException>(s.exceptions).filter((e) => versionIds.has(e?.versionId)),
     collections,
     jobs,
     activeJobId,
+    demoSeeded: true,
   };
 }
 
@@ -188,7 +206,7 @@ const storage = createJSONStorage<Persisted>(() => ({
 }));
 
 /** Clean-session state: base fixtures + curated demo history (versions, notes, reviews). */
-const initial = (): Persisted => ({
+export const curatedStudioState = (): Persisted => ({
   concepts: CONCEPTS.map((c) => {
     const head = DEMO_VERSIONS.find((v) => v.id === DEMO_HEAD[c.id]);
     return head ? mirror(c, head) : c;
@@ -200,6 +218,7 @@ const initial = (): Persisted => ({
   collections: COLLECTIONS,
   jobs: [],
   activeJobId: null,
+  demoSeeded: true,
 });
 
 export const useStudioStore = create<StudioState>()(
@@ -221,7 +240,7 @@ export const useStudioStore = create<StudioState>()(
       };
 
       return {
-        ...initial(),
+        ...curatedStudioState(),
         toggleFavorite: (id) => set((s) => ({ concepts: s.concepts.map((c) => (c.id === id ? { ...c, favorite: !c.favorite } : c)) })),
         addConcepts: (incoming) =>
           set((s) => {
@@ -380,7 +399,7 @@ export const useStudioStore = create<StudioState>()(
             lookMeta: Object.fromEntries(Object.entries(c.lookMeta ?? {}).map(([k, m]) => [k, m.groupId === groupId ? { ...m, groupId: null } : m])),
           })),
         setCollectionStatus: (collectionId, status) => patchCollection(collectionId, (c) => ({ ...c, status })),
-        reset: () => set(initial()),
+        reset: () => set(curatedStudioState()),
       };
     },
     {
@@ -392,7 +411,7 @@ export const useStudioStore = create<StudioState>()(
       // Same-version payloads are still validated so a hand-edited or corrupt entry can't break the UI.
       merge: (persisted, current) => ({ ...current, ...migrateState(persisted) }),
       partialize: ({ concepts, versions, annotations, reviews, exceptions, collections, jobs, activeJobId }) => ({
-        concepts, versions, annotations, reviews, exceptions, collections, jobs, activeJobId,
+        concepts, versions, annotations, reviews, exceptions, collections, jobs, activeJobId, demoSeeded: true,
       }),
     },
   ),

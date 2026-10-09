@@ -77,7 +77,7 @@ describe("export content", () => {
     expect(JSON.stringify(doc)).not.toMatch(/production[- ]approved|tech pack approved/i);
   });
   it("renders a PDF containing the title and disclaimer", async () => {
-    const pdf = await renderBriefPdf(doc, []);
+    const pdf = await renderBriefPdf(doc, [], { compress: false });
     const raw = pdf.output();
     expect(raw.startsWith("%PDF")).toBe(true);
     expect(raw).toContain(BRIEF_TITLE);
