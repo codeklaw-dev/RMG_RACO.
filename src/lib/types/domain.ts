@@ -41,30 +41,6 @@ export interface PaletteColor {
   hex: string;
 }
 
-export interface BrandRule {
-  id: ID;
-  text: string;
-  /** Asset ids that justify this rule (shown as citations in the UI). */
-  sourceAssetIds: ID[];
-}
-
-export interface BrandProfile {
-  id: ID;
-  orgId: ID;
-  name: string;
-  version: number;
-  approved: boolean;
-  summary: string;
-  styleRules: BrandRule[];
-  negativeRules: BrandRule[];
-  palette: PaletteColor[];
-  silhouettes: string[];
-  fabrics: string[];
-  targetCustomer: string;
-  completeness: number; // 0–100
-  updatedAt: ISODate;
-}
-
 export type AssetKind = "reference" | "moodboard" | "sketch" | "generated" | "model";
 export type LicenseStatus = "owned" | "licensed" | "unknown" | "placeholder";
 export type ConsentStatus = "not_required" | "granted" | "pending";
@@ -110,6 +86,8 @@ export interface Concept {
   status: ConceptStatus;
   palette: PaletteColor[];
   fabrics: string[];
+  /** Construction details from the controlled vocabulary (lib/brand/vocabulary). */
+  details?: string[];
   favorite: boolean;
   capability: CapabilityState;
   currentVersionId: ID;

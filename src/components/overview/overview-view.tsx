@@ -10,7 +10,9 @@ import { Reveal } from "@/components/shared/reveal";
 import { Section } from "@/components/shared/section";
 import { Button } from "@/components/ui/button";
 import { CURRENT_USER, ORG } from "@/lib/fixtures";
-import { getAIProvider, repo } from "@/lib/services";
+import { completeness } from "@/lib/brand/intelligence";
+import { getAIProvider } from "@/lib/services";
+import { useApprovedVersion, useBrandStore } from "@/lib/store/brand-store";
 import { useStudioStore } from "@/lib/store/studio-store";
 import type { GenerationJob } from "@/lib/types/domain";
 
@@ -24,7 +26,9 @@ const QUICK_ACTIONS = [
 export function OverviewView() {
   const concepts = useStudioStore((s) => s.concepts);
   const collections = useStudioStore((s) => s.collections).filter((c) => c.orgId === ORG.id);
-  const brand = repo.getBrandProfile(ORG.id);
+  const approved = useApprovedVersion();
+  const brandRefs = useBrandStore((s) => s.references);
+  const brand = approved ? { version: approved.version, summary: approved.content.description, palette: approved.content.palette, completeness: completeness(approved.content, brandRefs).score } : null;
   const [jobs, setJobs] = useState<GenerationJob[]>([]);
 
   const studioJobs = useStudioStore((s) => s.jobs);
@@ -109,7 +113,7 @@ export function OverviewView() {
               <div className="space-y-4">
                 <div className="flex items-baseline justify-between">
                   <p className="t-title">{brand.completeness}%</p>
-                  <p className="t-meta">v{brand.version} · {brand.approved ? "Approved" : "Draft"}</p>
+                  <p className="t-meta">Approved v{brand.version}</p>
                 </div>
                 <div className="h-px bg-hairline">
                   <div className="h-px bg-oxblood" style={{ width: `${brand.completeness}%` }} />

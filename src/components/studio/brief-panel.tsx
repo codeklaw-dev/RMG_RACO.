@@ -3,11 +3,13 @@ import { useId, useState, type FormEvent } from "react";
 import { Dices, Loader2, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { BRAND_PROFILE, ORG } from "@/lib/fixtures";
+import Link from "next/link";
+import { ORG } from "@/lib/fixtures";
 import { EXPLORE_PALETTES } from "@/lib/services/demo-engine";
 import { MODE_COPY, buildGenerateRequest } from "@/lib/studio/brief";
 import { useStudioSession } from "@/lib/store/studio-session";
 import { useStudioStore } from "@/lib/store/studio-store";
+import { useApprovedVersion, useEligibleReferenceIds, useWorkingVersion } from "@/lib/store/brand-store";
 import type { DesignMode, GarmentCategory, Material, Silhouette } from "@/lib/types/domain";
 import { cn } from "@/lib/utils";
 import { ChipCheckboxGroup, ChipRadioGroup, Field, Swatch } from "./controls";
@@ -38,7 +40,7 @@ const MATERIAL_OPTIONS: { value: Material; label: string }[] = [
   { value: "technical", label: "Technical" },
 ];
 
-const EXTRA_SWATCHES = EXPLORE_PALETTES.map((p) => p[0]).filter((c) => !BRAND_PROFILE.palette.some((b) => b.hex === c.hex));
+const EXPLORE_SWATCHES = EXPLORE_PALETTES.map((p) => p[0]);
 
 export const EXAMPLE_BRIEFS = [
   {
@@ -70,11 +72,17 @@ export function BriefPanel({ runner, onSubmitted }: { runner: Runner; onSubmitte
   const source = useStudioStore((s) => s.concepts.find((c) => c.id === brief.variationOf));
   const [issues, setIssues] = useState<string[]>([]);
   const busy = Boolean(runner.activeJobId);
+  const approved = useApprovedVersion();
+  const working = useWorkingVersion();
+  const eligibleReferenceIds = useEligibleReferenceIds();
+  const brandPalette = approved?.content.palette ?? [];
+  const extraSwatches = EXPLORE_SWATCHES.filter((c) => !brandPalette.some((b) => b.hex.toUpperCase() === c.hex.toUpperCase()));
+  const brandUnavailable = !approved;
   const promptId = useId();
 
   const submit = async (e?: FormEvent) => {
     e?.preventDefault();
-    const request = buildGenerateRequest(brief, { orgId: ORG.id, brand: BRAND_PROFILE, idempotencyKey: newIdempotencyKey() });
+    const request = buildGenerateRequest(brief, { orgId: ORG.id, brand: approved, eligibleReferenceIds, idempotencyKey: newIdempotencyKey() });
     const res = await runner.submit(request);
     setIssues(res.ok ? [] : res.issues);
     if (res.ok) onSubmitted?.();
@@ -134,8 +142,16 @@ export function BriefPanel({ runner, onSubmitted }: { runner: Runner; onSubmitte
           <div role="radiogroup" aria-label="Generation mode" className="grid grid-cols-3 border border-hairline">
             {(Object.keys(MODE_COPY) as DesignMode[]).map((m) => (
               <label key={m} className="relative">
-                <input type="radio" name="mode" value={m} checked={brief.mode === m} onChange={() => setMode(m)} className="peer sr-only" />
-                <span className="flex h-8 cursor-pointer items-center justify-center text-[12px] text-charcoal transition-colors peer-checked:bg-ink peer-checked:text-paper peer-focus-visible:ring-2 peer-focus-visible:ring-inset peer-focus-visible:ring-ring">
+                <input
+                  type="radio"
+                  name="mode"
+                  value={m}
+                  checked={brief.mode === m}
+                  disabled={m !== "explore" && brandUnavailable}
+                  onChange={() => setMode(m)}
+                  className="peer sr-only"
+                />
+                <span className="flex h-8 cursor-pointer items-center justify-center text-[12px] text-charcoal transition-colors peer-checked:bg-ink peer-checked:text-paper peer-focus-visible:ring-2 peer-focus-visible:ring-inset peer-focus-visible:ring-ring peer-disabled:cursor-not-allowed peer-disabled:opacity-40">
                   {MODE_COPY[m].label}
                 </span>
               </label>
@@ -143,8 +159,36 @@ export function BriefPanel({ runner, onSubmitted }: { runner: Runner; onSubmitte
           </div>
           <p className="text-[12px] text-muted-foreground">
             {MODE_COPY[brief.mode].hint}
-            {brief.mode !== "explore" && ` · ${BRAND_PROFILE.name} profile v${BRAND_PROFILE.version} (placeholder)`}
+            {brief.mode !== "explore" && approved && ` · ${approved.content.name} approved v${approved.version}`}
           </p>
+          {brandUnavailable && (
+            <p className="text-[12px] text-oxblood">
+              Brand and Hybrid need an approved Brand DNA version. <Link href="/brand-dna" className="underline">Approve one</Link>.
+            </p>
+          )}
+          {brief.mode !== "explore" && working && approved && (
+            <p className="text-[12px] text-muted-foreground">
+              {working.status === "in_review" ? "In review" : "Draft"} v{working.version} is not used until approved.
+            </p>
+          )}
+          {brief.mode !== "explore" && (
+            <label className="block space-y-1 pt-1">
+              <span className="t-meta flex justify-between">
+                <span>Brand strictness</span>
+                <span className="normal-case tracking-normal">{brief.brandStrictness.toFixed(2)}</span>
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                value={brief.brandStrictness}
+                onChange={(e) => setBrief({ brandStrictness: Number(e.target.value) })}
+                className="w-full accent-ink"
+                aria-label="Brand strictness"
+              />
+            </label>
+          )}
         </Field>
 
         <Field label="Garment">
@@ -161,15 +205,18 @@ export function BriefPanel({ runner, onSubmitted }: { runner: Runner; onSubmitte
 
         <Field label="Palette" hint={brief.palette.length ? `${brief.palette.length}/4` : "auto"}>
           <div className="flex flex-wrap gap-2">
-            {BRAND_PROFILE.palette.map((c) => (
+            {brandPalette.map((c) => (
               <Swatch key={c.hex} hex={c.hex} name={`${c.name} (brand)`} checked={brief.palette.includes(c.hex)} onChange={() => togglePalette(c.hex)} />
             ))}
             <span aria-hidden className="mx-1 w-px self-stretch bg-hairline" />
-            {EXTRA_SWATCHES.map((c) => (
+            {extraSwatches.map((c) => (
               <Swatch key={c.hex} hex={c.hex} name={c.name} disabled={brandOnly} checked={brief.palette.includes(c.hex)} onChange={() => togglePalette(c.hex)} />
             ))}
           </div>
           {brandOnly && <p className="text-[12px] text-muted-foreground">Brand mode limits colours to the approved palette.</p>}
+          {brief.mode !== "explore" && (
+            <p className="text-[12px] text-muted-foreground">{eligibleReferenceIds.length} approved brand references attach as metadata.</p>
+          )}
         </Field>
 
         <Field label="Season / collection">

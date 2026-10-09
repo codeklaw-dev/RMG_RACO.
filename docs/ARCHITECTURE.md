@@ -45,8 +45,25 @@ Next.js App Router (src/app/(studio)/*)
 5. Variations set `variationOf`; results carry `parentConceptId`.
 6. `saveToCollection` enforces org match and no duplicate membership. Collection pages and Overview read the same store.
 
+## Brand DNA (Phase 3)
+```
+lib/types/brand.ts         BrandDNA, BrandProfileVersion, BrandRule (+ structured RuleEffect), BrandReference
+lib/brand/versioning.ts    pure workflow: draft → in_review → approved (prev → archived); restore → new draft
+lib/brand/intelligence.ts  completeness, conflict detection, buildBrandContext(), evaluateConcept(), diffContent()
+lib/brand/vocabulary.ts    controlled construction-detail and material vocab shared by rules, engine and checks
+lib/store/brand-store.ts   persisted versions/references/change log (metadata only)
+lib/store/reference-files.ts in-tab object URLs for uploaded references (never persisted)
+components/brand-dna/*     workspace sections + workflow bar
+```
+Rules:
+- Approved versions are immutable; any edit goes to a draft (created on first save).
+- Only the **approved** version reaches `buildBrandContext()`; drafts and in-review versions never condition generation. With no approved version, Brand/Hybrid are disabled.
+- Only enabled + approved rules are active. Only structured effects are evaluated; `guidance` rules are passed as text.
+- Each generated concept records `brandProfileVersion`; the inspector checks it against that exact version.
+- The demo engine uses an independent seeded stream per attribute, so a rule change moves only what it governs.
+
 ## Persisted demo state
-`studio-store` persists under `raco-studio` with an explicit `version`. `migrateState()` upgrades legacy keys (`raco-studio-v1`, `raco-studio-v2`), fills fields added since, drops unrepairable records, and re-validates same-version payloads so corrupt storage falls back to fixtures instead of breaking the UI. Bump `STORE_VERSION` and extend `migrateState()` whenever the persisted shape changes.
+`raco-brand` (brand-store) validates on load and falls back to fixtures. `studio-store` persists under `raco-studio` with an explicit `version`. `migrateState()` upgrades legacy keys (`raco-studio-v1`, `raco-studio-v2`), fills fields added since, drops unrepairable records, and re-validates same-version payloads so corrupt storage falls back to fixtures instead of breaking the UI. Bump `STORE_VERSION` and extend `migrateState()` whenever the persisted shape changes.
 
 Reference previews are object URLs: revoked on remove, on `clearReferences()`, and on `pagehide`. They are never persisted.
 

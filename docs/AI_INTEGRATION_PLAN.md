@@ -19,7 +19,9 @@ Real adapters run **server-side only**, behind `/api/v1`, with timeouts, retries
 Nothing is integrated in the demo. Every output is labelled **Simulated**.
 
 ## Studio ↔ Brand DNA seam (Phase 3)
-`buildBrandContext(mode, profile)` in `src/lib/studio/brief.ts` is the single place brand conditioning is assembled. Today it sends profile id/version/approval, palette and rule ids, plus an exploration weight (Brand 0.2, Hybrid 0.5). Phase 3 extends `brandContextSchema` with rule text, retrieved reference ids and consistency constraints, and feeds it the edited, approved profile from a Brand DNA store. The Studio UI and `useJobRunner` do not change.
+Implemented in Phase 3: `buildBrandContext(mode, approvedVersion, { strictness, referenceIds })` in `src/lib/brand/intelligence.ts` is the single place brand conditioning is assembled. It sends the approved version, palette (+ signature colours, palette-only flag, avoided colours), preferred/avoided silhouettes, materials and construction details, rule ids, guidance text, eligible reference ids and strictness (Brand 0.9, Hybrid 0.55 by default; adjustable in the Studio). The schema only accepts `approved: true`.
+
+Pilot path for real providers: map `preferred*`/`avoid*` to positive/negative prompt terms and ControlNet/IP-Adapter inputs, `referenceIds` to retrieved image conditioning, and replace `evaluateConcept()` with a VLM- or embedding-based consistency scorer that returns the same `RuleCheck` shape.
 
 ## Brand DNA without fine-tuning
 1. Structured `BrandProfile` (style rules, negative rules, palette, silhouettes, fabrics), versioned and approved by a human.

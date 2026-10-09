@@ -3,7 +3,6 @@
 import type {
   Asset,
   Silhouette,
-  BrandProfile,
   Collection,
   Concept,
   GarmentCategory,
@@ -12,6 +11,7 @@ import type {
   PaletteColor,
   User,
 } from "@/lib/types/domain";
+import { BRAND_REFERENCES, BRAND_VERSIONS } from "./brand";
 
 export const ORG: Organization = { id: "org_serein", name: "Serein Atelier" };
 
@@ -51,32 +51,9 @@ export const ASSETS: Asset[] = [
   provenance: "Demo placeholder — to be replaced with client-owned archive imagery.",
 }));
 
-export const BRAND_PROFILE: BrandProfile = {
-  id: "brd_serein",
-  orgId: ORG.id,
-  name: "Serein Atelier",
-  version: 3,
-  approved: true,
-  summary:
-    "Quiet, architectural womenswear. Precise shoulders, long uninterrupted lines and natural fibres in an earthen palette. Novelty lives in construction, not ornament.",
-  styleRules: [
-    { id: "r1", text: "Structured, slightly extended shoulders on all outerwear", sourceAssetIds: ["ast_ref_01", "ast_ref_05"] },
-    { id: "r2", text: "Long vertical lines; hems at mid-calf or ankle", sourceAssetIds: ["ast_ref_02"] },
-    { id: "r3", text: "Natural fibres — wool, linen, cotton poplin, silk", sourceAssetIds: ["ast_ref_04", "ast_ref_06"] },
-    { id: "r4", text: "Concealed closures and clean facings", sourceAssetIds: ["ast_ref_01"] },
-  ],
-  negativeRules: [
-    { id: "n1", text: "No visible logos or monograms", sourceAssetIds: [] },
-    { id: "n2", text: "No high-saturation brights or neon", sourceAssetIds: ["ast_ref_03"] },
-    { id: "n3", text: "No ruffles or applied embellishment", sourceAssetIds: ["ast_ref_02"] },
-  ],
-  palette: [C.stone, C.espresso, C.bone, C.ink, C.oxblood, C.sage],
-  silhouettes: ["Column", "Cocoon", "Extended shoulder", "Wide-leg"],
-  fabrics: ["Double-faced wool", "Washed linen", "Cotton poplin", "Silk crepe"],
-  targetCustomer: "Women 30–55, design-literate professionals who buy fewer, better pieces.",
-  completeness: 78,
-  updatedAt: "2026-10-06T10:12:00Z",
-};
+/** The approved Serein Atelier version shipped with the demo (v3). */
+export const BRAND_PROFILE = BRAND_VERSIONS.find((v) => v.status === "approved")!;
+export { BRAND_REFERENCES, BRAND_VERSIONS };
 
 type Seed = [id: string, title: string, category: GarmentCategory, palette: PaletteColor[], fabric: string, mode: Concept["mode"], collectionId: string | null, fav?: boolean];
 
@@ -110,6 +87,7 @@ export const CONCEPTS: Concept[] = SEEDS.map(([id, title, category, palette, fab
   title,
   category,
   silhouette: SEED_SILHOUETTE[category],
+  details: [i % 3 === 0 ? "clean facings, no visible hardware" : "concealed placket", i % 2 ? "hand-felled hems" : "bound seams"],
   description: `${title} in ${fabric.toLowerCase()}. Archive concept from the ${collectionId === "col_resort" ? "Resort27" : "AW26"} development cycle.`,
   prompt: `${title}. ${fabric}, ${palette.map((p) => p.name.toLowerCase()).join(" and ")} palette, studio editorial lighting, no logos.`,
   mode,

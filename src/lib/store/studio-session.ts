@@ -2,8 +2,9 @@
 // Ephemeral Studio UI state: the brief being edited, selection, local references.
 // Not persisted — reference previews are object URLs that die with the tab.
 import { create } from "zustand";
-import { BRAND_PROFILE } from "@/lib/fixtures";
-import { DEFAULT_BRIEF, MODE_DEFAULT_CREATIVITY, briefFromConcept, type Brief } from "@/lib/studio/brief";
+import { approvedVersion } from "@/lib/brand/versioning";
+import { useBrandStore } from "./brand-store";
+import { DEFAULT_BRIEF, MODE_DEFAULT_CREATIVITY, briefFromConcept, strictnessFor, type Brief } from "@/lib/studio/brief";
 import type { Concept, DesignMode, ID } from "@/lib/types/domain";
 
 export interface LocalReference {
@@ -43,15 +44,19 @@ export const useStudioSession = create<SessionState>()((set) => ({
   viewJobId: null,
   setBrief: (patch) => set((s) => ({ brief: { ...s.brief, ...patch } })),
   setMode: (mode) =>
-    set((s) => ({
-      brief: {
-        ...s.brief,
-        mode,
-        creativity: MODE_DEFAULT_CREATIVITY[mode],
-        // Brand mode keeps only colours that belong to the brand palette.
-        palette: mode === "brand" ? s.brief.palette.filter((h) => BRAND_PROFILE.palette.some((p) => p.hex === h)) : s.brief.palette,
-      },
-    })),
+    set((s) => {
+      const palette = approvedVersion(useBrandStore.getState().versions)?.content.palette ?? [];
+      return {
+        brief: {
+          ...s.brief,
+          mode,
+          creativity: MODE_DEFAULT_CREATIVITY[mode],
+          brandStrictness: strictnessFor(mode),
+          // Brand mode keeps only colours that belong to the approved palette.
+          palette: mode === "brand" ? s.brief.palette.filter((h) => palette.some((p) => p.hex.toUpperCase() === h.toUpperCase())) : s.brief.palette,
+        },
+      };
+    }),
   loadVariation: (c) => set((s) => ({ brief: briefFromConcept(c, s.brief) })),
   clearVariation: () => set((s) => ({ brief: { ...s.brief, variationOf: null } })),
   select: (selectedId) => set({ selectedId }),

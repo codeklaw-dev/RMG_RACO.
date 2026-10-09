@@ -15,22 +15,38 @@ import {
 const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Colours must be 6-digit hex");
 
 /**
- * Brand conditioning attached to Brand/Hybrid requests.
- * Phase 2 fills profile id/version, palette and rule ids from the fixture profile.
- * Phase 3 extends this object (retrieved references, approval state, consistency
- * constraints) without changing the Studio's request assembly call site.
+ * Brand conditioning attached to Brand/Hybrid requests, built only from an
+ * APPROVED profile version by `buildBrandContext()` in lib/brand/intelligence.ts.
+ * Pilot extensions (retrieved embeddings, LoRA adapter id, consistency
+ * thresholds) add optional fields here without changing call sites.
  */
 export const brandContextSchema = z.object({
   profileId: z.string().min(1),
   version: z.number().int().positive(),
-  approved: z.boolean(),
-  palette: z.array(hex).max(8),
+  approved: z.literal(true, { message: "Only approved brand profiles can condition generation" }),
+  palette: z.array(hex).max(16),
+  signaturePalette: z.array(hex).default([]),
+  paletteOnly: z.boolean().default(false),
+  avoidColours: z.array(hex).default([]),
+  preferredSilhouettes: z.array(z.enum(SILHOUETTES)).default([]),
+  avoidSilhouettes: z.array(z.enum(SILHOUETTES)).default([]),
+  preferredMaterials: z.array(z.enum(MATERIALS)).default([]),
+  avoidMaterials: z.array(z.enum(MATERIALS)).default([]),
+  preferredDetails: z.array(z.string()).default([]),
+  avoidDetails: z.array(z.string()).default([]),
   styleRuleIds: z.array(z.string()),
   negativeRuleIds: z.array(z.string()),
-  /** 0 = pure brand, 1 = ignore brand. Brand mode 0.2, Hybrid 0.5. */
+  /** Titles of guidance-only rules: passed as text, never scored. */
+  guidance: z.array(z.string()).default([]),
+  /** Approved + available brand references (metadata ids only). */
+  referenceIds: z.array(z.string()).default([]),
+  /** 1 = follow brand strictly. */
+  strictness: z.number().min(0).max(1).default(0.9),
+  /** 0 = pure brand, 1 = ignore brand. Always 1 − strictness. */
   explorationWeight: z.number().min(0).max(1),
 });
 export type BrandContext = z.infer<typeof brandContextSchema>;
+export type BrandContextInput = z.input<typeof brandContextSchema>;
 
 export const generateRequestSchema = z
   .object({
@@ -55,7 +71,7 @@ export const generateRequestSchema = z
     idempotencyKey: z.string().min(8),
   })
   .refine((r) => r.mode === "explore" || r.brandContext !== null, {
-    message: "Brand and Hybrid modes require a brand context",
+    message: "Brand and Hybrid modes require an approved brand profile",
     path: ["brandContext"],
   })
   .refine((r) => r.mode !== "explore" || r.brandContext === null, {

@@ -53,7 +53,8 @@ function JobStatus({ record, runner }: { record: JobRecord; runner: Runner }) {
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <div className="min-w-0">
           <p className="t-meta">
-            {job.status} · attempt {job.attempt}
+            {job.status} · attempt {job.attempt} · {record.request.mode}
+            {record.request.brandContext ? ` · Brand DNA v${record.request.brandContext.version}` : ""}
           </p>
           <p className="truncate text-[15px] font-medium">{record.request.prompt}</p>
         </div>
@@ -112,7 +113,7 @@ function History({ records, current }: { records: JobRecord[]; current: string |
                 job.id === current && "border-ink bg-card",
               )}
             >
-              <span className="t-meta block">{job.status} · {request.mode}</span>
+              <span className="t-meta block">{job.status} · {request.mode}{request.brandContext ? ` · v${request.brandContext.version}` : ""}</span>
               <span className="block truncate text-[12px]">{request.prompt}</span>
             </button>
           </li>
