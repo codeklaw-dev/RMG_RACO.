@@ -13,6 +13,13 @@
 | sonner | MIT | Toasts |
 | clsx, tailwind-merge, class-variance-authority | MIT | Class utilities |
 
+## Added in Phase 5
+| Package | Licence | Why |
+|---|---|---|
+| jspdf | MIT | Client-side PDF export of the preliminary brief; dynamically imported on export only |
+
+Removed in Phase 5: `next-themes` (unused).
+
 ## Added in Phase 4
 | Package | Licence | Why |
 |---|---|---|

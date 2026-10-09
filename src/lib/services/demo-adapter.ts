@@ -13,12 +13,18 @@ import {
   type GenerateRequestInput,
   type JobRef,
   type TryOnRequest,
+  tryOnRequestSchema,
   ProviderError,
   editRequestSchema,
   generateRequestSchema,
 } from "./ai-provider";
 import { synthesizeConcepts } from "./demo-engine";
 import { applyEdit, parseInstruction } from "./demo-edit";
+import { FIT_MODELS } from "@/lib/fixtures/fit-models";
+import { TRY_ON_LABEL, type TryOnPreview } from "@/lib/types/handoff";
+import type { z } from "zod";
+
+type TryOnInput = z.output<typeof tryOnRequestSchema>;
 import { TERMINAL, transition } from "./job-machine";
 
 export const QUEUE_MS = 800;
@@ -26,7 +32,7 @@ export const DURATION_MS: Record<JobType, number> = {
   generate: 4200,
   edit: 4000,
   analyze_brand: 5000,
-  try_on: 7000,
+  try_on: 4500,
 };
 /** Progress at which a `simulateFailure` request fails (first attempt only). */
 export const FAIL_AT = 0.45;
@@ -44,6 +50,8 @@ interface Tracked {
   startedAt: number;
   request: GenerateRequest | null;
   edit: EditRequest | null;
+  tryOn?: TryOnInput | null;
+  preview?: TryOnPreview | null;
   results: Concept[];
   version: ConceptVersion | null;
   fixtureResultIds: ID[];
@@ -96,9 +104,16 @@ export class DemoAIAdapter implements AIProvider {
     return this.enqueue("analyze_brand", req.orgId, `Analyse ${req.assetIds.length} references`, null, null);
   }
 
-  async virtualTryOn(req: TryOnRequest) {
-    if (!req.consentConfirmed) throw new ProviderError("validation", "Model consent is required.");
-    return this.enqueue("try_on", req.orgId, "Try-on preview", null, null);
+  async virtualTryOn(input: TryOnRequest) {
+    const parsed = tryOnRequestSchema.safeParse(input);
+    if (!parsed.success) throw new ProviderError("validation", parsed.error.issues[0].message);
+    const req = parsed.data;
+    const model = FIT_MODELS.find((m) => m.id === req.modelId);
+    if (!model) throw new ProviderError("validation", "Unknown fitting model");
+    if (!model.poses.includes(req.pose)) throw new ProviderError("validation", `${model.name} has no ${req.pose.replace("_", "-")} pose`);
+    const ref = this.enqueue("try_on", req.orgId, `Fitting preview · ${req.garment.title}`, req.idempotencyKey, null, [req.conceptId]);
+    this.jobs.get(ref.jobId)!.tryOn = req;
+    return ref;
   }
 
   private get(jobId: ID) {
@@ -121,6 +136,28 @@ export class DemoAIAdapter implements AIProvider {
         type: "fail",
         errorCode: "simulated_failure",
       });
+      return;
+    }
+    if (progress >= 1 && t.tryOn) {
+      const r = t.tryOn;
+      t.preview = {
+        id: `tryon_${t.job.id}`,
+        orgId: r.orgId,
+        conceptId: r.conceptId,
+        versionId: r.versionId,
+        versionNumber: 0, // filled by the store from the version record
+        modelId: r.modelId,
+        pose: r.pose,
+        background: r.background,
+        colour: r.colour,
+        garment: r.garment,
+        jobId: t.job.id,
+        label: TRY_ON_LABEL,
+        provenance: "Composited by demo adapter from schematic avatar + schematic garment · no try-on model, no fit or drape simulation",
+        saved: false,
+        createdAt: new Date(this.now()).toISOString(),
+      };
+      t.job = transition(t.job, { type: "succeed", resultConceptIds: [r.conceptId] });
       return;
     }
     if (progress >= 1 && t.edit) {
@@ -173,6 +210,12 @@ export class DemoAIAdapter implements AIProvider {
     const t = this.get(jobId);
     this.advance(t);
     return t.job.status === "succeeded" ? t.version : null;
+  }
+
+  async getTryOnResult(jobId: ID): Promise<TryOnPreview | null> {
+    const t = this.get(jobId);
+    this.advance(t);
+    return t.job.status === "succeeded" ? (t.preview ?? null) : null;
   }
 
   async cancelJob(jobId: ID) {

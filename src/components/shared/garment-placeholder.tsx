@@ -50,6 +50,42 @@ function Details({ category, variant }: { category: GarmentCategory; variant: nu
   }
 }
 
+/** The garment drawing as an SVG group in a 100×140 coordinate space, for composition. */
+export function GarmentShape({
+  category,
+  palette,
+  silhouette = "tailored",
+  seed = 0,
+  view = "front",
+}: {
+  category: GarmentCategory;
+  palette: PaletteColor[];
+  silhouette?: Silhouette;
+  seed?: number | null;
+  view?: "front" | "back";
+}) {
+  const main = palette[0]?.hex ?? "#CFC6B8";
+  const accent = palette[1]?.hex;
+  const variant = (seed ?? 0) % 4;
+  const clipId = `g-${category}-${silhouette}-${main.slice(1)}-${view}`;
+  const sx = SCALE_X[silhouette];
+  return (
+    <g transform={`translate(50 0) scale(${sx} 1) translate(-50 0)`}>
+      <defs>
+        <clipPath id={clipId}>
+          <path d={PATHS[category]} />
+        </clipPath>
+      </defs>
+      <path d={PATHS[category]} fill={main} />
+      {accent && <rect x="0" y="104" width="100" height="40" fill={accent} clipPath={`url(#${clipId})`} />}
+      <g clipPath={`url(#${clipId})`}>
+        {view === "front" ? <Details category={category} variant={variant} /> : <line x1="50" y1="14" x2="50" y2="130" stroke={LINE} strokeWidth="0.7" />}
+      </g>
+      <path d={PATHS[category]} fill="none" stroke="rgba(23,23,23,0.35)" strokeWidth="0.6" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+    </g>
+  );
+}
+
 export function GarmentPlaceholder({
   category,
   palette,
@@ -68,11 +104,6 @@ export function GarmentPlaceholder({
   label?: string | null;
   className?: string;
 }) {
-  const main = palette[0]?.hex ?? "#CFC6B8";
-  const accent = palette[1]?.hex;
-  const variant = (seed ?? 0) % 4;
-  const clipId = `g-${category}-${silhouette}-${main.slice(1)}`;
-  const sx = SCALE_X[silhouette];
   return (
     <div
       className={cn("relative flex items-center justify-center overflow-hidden bg-paper-2", className)}
@@ -80,23 +111,7 @@ export function GarmentPlaceholder({
       aria-label={`Schematic ${silhouette} ${category} placeholder, ${view} view`}
     >
       <svg viewBox="0 0 100 140" className="h-[78%] w-auto" aria-hidden>
-        <g transform={`translate(50 0) scale(${sx} 1) translate(-50 0)`}>
-          <defs>
-            <clipPath id={clipId}>
-              <path d={PATHS[category]} />
-            </clipPath>
-          </defs>
-          <path d={PATHS[category]} fill={main} />
-          {accent && <rect x="0" y="104" width="100" height="40" fill={accent} clipPath={`url(#${clipId})`} />}
-          <g clipPath={`url(#${clipId})`}>
-            {view === "front" ? (
-              <Details category={category} variant={variant} />
-            ) : (
-              <line x1="50" y1="14" x2="50" y2="130" stroke={LINE} strokeWidth="0.7" />
-            )}
-          </g>
-          <path d={PATHS[category]} fill="none" stroke="rgba(23,23,23,0.35)" strokeWidth="0.6" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-        </g>
+        <GarmentShape category={category} palette={palette} silhouette={silhouette} seed={seed} view={view} />
       </svg>
       {label && <span className="absolute bottom-2 left-2 font-mono text-[9px] uppercase tracking-[0.1em] text-stone">{label}</span>}
     </div>

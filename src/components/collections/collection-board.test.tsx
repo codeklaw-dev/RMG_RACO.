@@ -41,7 +41,7 @@ describe("collection board", { timeout: 20_000 }, () => {
     fireEvent.click(screen.getAllByRole("button", { name: "Submit for review" })[0]);
     fireEvent.click(screen.getAllByRole("button", { name: "Approve (simulated)" })[0]);
     expect(approved()).toBe(before + 1);
-    expect(useStudioStore.getState().reviews.map((r) => r.to)).toEqual(["approved", "in_review"]);
+    expect(useStudioStore.getState().reviews.slice(0, 2).map((r) => r.to)).toEqual(["approved", "in_review"]);
     expect(useStudioStore.getState().collections.find((c) => c.id === "col_aw26")!.creativeDirection).toBe("Narrow shoulders, tonal");
   });
 });

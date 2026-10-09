@@ -70,13 +70,13 @@ describe("annotations", () => {
   it("are tied to a version, clamped, and persisted", () => {
     const res = st().addAnnotation({ conceptId: C.id, versionId: own()[0].id, x: 1.4, y: 0.25, text: " Reduce shoulder width ", category: "fit", view: "front" });
     expect(res.ok).toBe(true);
-    const a = st().annotations[0];
+    const a = st().annotations.find((x) => res.ok && x.id === res.value)!;
     expect(a).toMatchObject({ x: 1, y: 0.25, text: "Reduce shoulder width", resolved: false, orgId: C.orgId });
     st().updateAnnotation(a.id, { resolved: true, text: "Done" });
-    const saved = JSON.parse(localStorage.getItem("raco-studio")!).state.annotations;
+    const saved = JSON.parse(localStorage.getItem("raco-studio")!).state.annotations.filter((x: { id: string }) => x.id === a.id);
     expect(saved[0]).toMatchObject({ resolved: true, text: "Done", versionId: own()[0].id });
     st().deleteAnnotation(a.id);
-    expect(st().annotations).toEqual([]);
+    expect(st().annotations.some((x) => x.id === a.id)).toBe(false);
   });
   it("reject empty comments and unknown versions", () => {
     expect(st().addAnnotation({ conceptId: C.id, versionId: own()[0].id, x: 0.5, y: 0.5, text: " ", category: "fit", view: "front" }).ok).toBe(false);
@@ -114,7 +114,7 @@ describe("review workflow", () => {
     const res = st().review(C.id, "reopen");
     expect(res.ok && res.value).toBeTruthy();
     expect(own().at(-1)).toMatchObject({ operation: "reopen", number: 2 });
-    expect(st().reviews.map((r) => r.to)).toEqual(["draft", "rejected", "in_review"]);
+    expect(st().reviews.filter((r) => r.conceptId === C.id).map((r) => r.to)).toEqual(["draft", "rejected", "in_review"]);
     expect(st().review(C.id, "approve").ok).toBe(false);
   });
 });
@@ -157,7 +157,7 @@ describe("organisation isolation", () => {
   it("stamps annotations with the concept's organisation", () => {
     st().addConcepts([{ ...C, id: "foreign_2", orgId: "org_other", currentVersionId: "foreign_2_v1" }]);
     st().addAnnotation({ conceptId: "foreign_2", versionId: "foreign_2_v1", x: 0.1, y: 0.1, text: "x", category: "fit", view: "front" });
-    expect(st().annotations[0].orgId).toBe("org_other");
+    expect(st().annotations.find((a) => a.conceptId === "foreign_2")!.orgId).toBe("org_other");
   });
 });
 

@@ -2,6 +2,7 @@
 // adapters (ComfyUI, Diffusers/FLUX, FASHN, VLMs) all implement this.
 // Real adapters run server-side only — never import secrets into client code.
 import { z } from "zod";
+import type { TryOnPreview } from "@/lib/types/handoff";
 import {
   GARMENT_CATEGORIES,
   MATERIALS,
@@ -114,12 +115,52 @@ export interface BrandAnalysisRequest {
   assetIds: ID[];
 }
 
-export interface TryOnRequest {
-  orgId: ID;
-  garmentAssetId: ID;
-  modelAssetId: ID;
-  consentConfirmed: true;
+// ── Virtual try-on contract ──────────────────────────────────
+// The demo adapter composes a schematic preview. A future provider (FASHN,
+// IDM-VTON, CatVTON… subject to licence review) receives the same request,
+// with garment/model asset ids resolved to private storage on the server.
+
+/** Garment input: a concept version and (in production) its rendered image asset. */
+export interface GarmentAsset {
+  conceptId: ID;
+  versionId: ID;
+  imageAssetId: ID | null;
+  category: string;
 }
+
+/** Model input: an avatar or a consented model photograph in production. */
+export interface ModelAsset {
+  modelId: ID;
+  imageAssetId: ID | null;
+  consent: "not_required_schematic" | "granted";
+}
+
+export interface PoseReference {
+  pose: "standing" | "walking" | "three_quarter";
+  keypointsAssetId?: ID | null;
+}
+
+export const tryOnRequestSchema = z.object({
+  orgId: z.string().min(1),
+  conceptId: z.string().min(1),
+  versionId: z.string().min(1),
+  modelId: z.string().min(1),
+  pose: z.enum(["standing", "walking", "three_quarter"]),
+  background: z.enum(["paper", "stone", "ink"]),
+  colour: hex.nullable().default(null),
+  garment: z.object({
+    title: z.string(),
+    silhouette: z.enum(SILHOUETTES),
+    palette: z.array(z.object({ name: z.string(), hex })).min(1, "The garment has no colours to preview"),
+    seed: z.number().nullable(),
+  }),
+  /** Usage rights for the model asset were confirmed (schematic avatars: rights held by RACO). */
+  consentConfirmed: z.literal(true, { message: "Confirm model usage rights before generating" }),
+  idempotencyKey: z.string().min(8),
+});
+export type TryOnRequest = z.input<typeof tryOnRequestSchema>;
+
+export type TryOnErrorCode = "validation" | "model_unavailable" | "garment_unsupported" | "timeout" | "provider_unavailable";
 
 export interface JobRef {
   jobId: ID;
@@ -140,6 +181,8 @@ export interface AIProvider {
   getJob(jobId: ID): Promise<GenerationJob>;
   /** Concepts produced by a succeeded job. Empty for any other state. */
   getResults(jobId: ID): Promise<Concept[]>;
+  /** Preview produced by a succeeded try-on job; null otherwise. */
+  getTryOnResult(jobId: ID): Promise<TryOnPreview | null>;
   /** New version produced by a succeeded edit job; null otherwise. */
   getEditResult(jobId: ID): Promise<ConceptVersion | null>;
   cancelJob(jobId: ID): Promise<void>;

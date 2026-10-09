@@ -26,6 +26,9 @@ Pilot path for real providers: map `preferred*`/`avoid*` to positive/negative pr
 ## Editing contract (Phase 4)
 `editConcept(EditRequest)` now carries `parentVersionId`, `instruction`, optional normalised `region` (→ mask), `maskAssetId` and the parent `base` snapshot; `getEditResult(jobId)` returns a `ConceptVersion`. The demo adapter interprets controlled vocabulary only and refuses anything else at request time. A real instruction-editing/inpainting provider can replace it without changing the Editor: map `region` to a mask, the parent image asset to the source, and return the new image asset id on the version.
 
+## Try-on contract (Phase 5)
+`virtualTryOn(TryOnRequest)` validated by `tryOnRequestSchema` (org, concept/version, model, pose, background, colour, garment, consent); `getTryOnResult(jobId)` returns a `TryOnPreview` with a fixed honesty label and provenance. Supporting types `GarmentAsset`, `ModelAsset`, `PoseReference`, `TryOnErrorCode`. Licence notes for FASHN, IDM-VTON, CatVTON in [VIRTUAL_TRY_ON.md](VIRTUAL_TRY_ON.md).
+
 ## Brand DNA without fine-tuning
 1. Structured `BrandProfile` (style rules, negative rules, palette, silhouettes, fabrics), versioned and approved by a human.
 2. Each rule cites source assets.

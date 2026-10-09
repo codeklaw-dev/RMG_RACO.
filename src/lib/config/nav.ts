@@ -6,6 +6,7 @@ import {
   Shirt,
   Sparkles,
   Fingerprint,
+  Gauge,
   type LucideIcon,
 } from "lucide-react";
 import type { CapabilityState } from "@/lib/types/domain";
@@ -39,7 +40,11 @@ export const NAV: { group: string; items: NavItem[] }[] = [
     group: "Development",
     items: [
       { href: "/try-on", label: "Virtual Try-On", icon: Shirt, capability: "simulated", enabled: FLAGS.virtualTryOn },
-      { href: "/technical", label: "Technical", icon: Ruler, capability: "planned", enabled: FLAGS.technicalDevelopment },
+      { href: "/technical", label: "Technical Handoff", icon: Ruler, enabled: FLAGS.technicalDevelopment },
     ],
+  },
+  {
+    group: "Pilot",
+    items: [{ href: "/pilot", label: "Pilot Readiness", icon: Gauge }],
   },
 ];

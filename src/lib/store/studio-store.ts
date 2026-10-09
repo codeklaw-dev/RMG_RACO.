@@ -9,6 +9,7 @@ import { nextVersion, originalVersion, versionsOf } from "@/lib/editor/versions"
 import { reviewTransition, type ReviewAction } from "@/lib/editor/review";
 import { clamp01 } from "@/lib/editor/annotations";
 import { COLLECTIONS, CONCEPTS } from "@/lib/fixtures";
+import { DEMO_ANNOTATIONS, DEMO_HEAD, DEMO_REVIEWS, DEMO_VERSIONS } from "@/lib/fixtures/demo";
 import type { GenerateRequestInput } from "@/lib/services/ai-provider";
 import type {
   BrandException,
@@ -186,11 +187,15 @@ const storage = createJSONStorage<Persisted>(() => ({
   removeItem: (name) => localStorage.removeItem(name),
 }));
 
+/** Clean-session state: base fixtures + curated demo history (versions, notes, reviews). */
 const initial = (): Persisted => ({
-  concepts: CONCEPTS,
-  versions: CONCEPTS.map(originalVersion),
-  annotations: [],
-  reviews: [],
+  concepts: CONCEPTS.map((c) => {
+    const head = DEMO_VERSIONS.find((v) => v.id === DEMO_HEAD[c.id]);
+    return head ? mirror(c, head) : c;
+  }),
+  versions: [...CONCEPTS.map(originalVersion), ...DEMO_VERSIONS],
+  annotations: DEMO_ANNOTATIONS,
+  reviews: DEMO_REVIEWS,
   exceptions: [],
   collections: COLLECTIONS,
   jobs: [],

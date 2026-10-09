@@ -1,7 +1,6 @@
 // Seed data for one fictional brand. No real brands, logos or people.
 // All imagery is rendered as neutral placeholders (licenseStatus: "placeholder").
 import type {
-  Asset,
   Silhouette,
   Collection,
   Concept,
@@ -33,23 +32,7 @@ const C = {
   clay: { name: "Clay", hex: "#B57A5A" },
 } satisfies Record<string, PaletteColor>;
 
-export const ASSETS: Asset[] = [
-  ["ast_ref_01", "reference", "AW24 archive — wrap coat"],
-  ["ast_ref_02", "reference", "AW24 archive — column dress"],
-  ["ast_ref_03", "moodboard", "Brutalist interiors, Lisbon"],
-  ["ast_ref_04", "moodboard", "Undyed linen swatch study"],
-  ["ast_ref_05", "sketch", "Shoulder construction sketch"],
-  ["ast_ref_06", "reference", "SS25 archive — poplin shirt"],
-].map(([id, kind, label]) => ({
-  id,
-  orgId: ORG.id,
-  kind: kind as Asset["kind"],
-  storageKey: `placeholder/${id}`,
-  label,
-  licenseStatus: "placeholder",
-  consentStatus: "not_required",
-  provenance: "Demo placeholder — to be replaced with client-owned archive imagery.",
-}));
+
 
 /** The approved Serein Atelier version shipped with the demo (v3). */
 export const BRAND_PROFILE = BRAND_VERSIONS.find((v) => v.status === "approved")!;

@@ -27,6 +27,16 @@ describe("refinement interpreter (supported commands)", () => {
     expect(base).toEqual(before);
   });
 
+  it("keeps the description consistent with changed attributes", () => {
+    const b = { ...base, description: "Blazer in lightweight wool with generous oversized proportions. Clean facings, bound seams. Palette: stone and espresso." };
+    const { changes } = parseInstruction("Make it fitted in linen and change the colour to oxblood", b);
+    const next = applyEdit(b, changes, "x");
+    expect(next.description).toContain("washed linen");
+    expect(next.description).toContain("a close, fitted line");
+    expect(next.description).toMatch(/Palette: oxblood and /);
+    expect(next.description).not.toContain("stone and espresso.");
+  });
+
   it("routes colour to the accent band for lower regions", () => {
     expect(targetsAccent({ x: 0.2, y: 0.8, w: 0.3, h: 0.1 })).toBe(true);
     expect(parseInstruction("Make it oxblood", base, { x: 0.2, y: 0.8, w: 0.3, h: 0.1 }).changes[0].attribute).toBe("accent");
