@@ -62,8 +62,22 @@ Rules:
 - Each generated concept records `brandProfileVersion`; the inspector checks it against that exact version.
 - The demo engine uses an independent seeded stream per attribute, so a rule change moves only what it governs.
 
+## Design Editor & collections (Phase 4)
+```
+lib/editor/versions.ts     immutable version helpers: originalVersion, nextVersion, diffSnapshots
+lib/editor/review.ts       concept review state machine
+lib/editor/annotations.ts  normalised pin coordinates + keyboard nudging
+lib/editor/collections.ts  palette summary, groups, collection review steps, presentation navigation
+lib/services/demo-edit.ts  deterministic refinement interpreter (controlled vocabulary)
+lib/store/editor-session.ts ephemeral canvas/draft state
+components/editor/*        navigator, canvas, inspector panels, edit job hook
+components/collections/*   board (dnd-kit) and presentation view
+app/present/[id]           presentation route outside the app shell
+```
+Store additions (`raco-studio` v5): `versions`, `annotations`, `reviews`, `exceptions`; collections gain `creativeDirection`, `notes`, `groups`, `lookMeta`. Mutations validate concept/version/collection existence and organisation scope. Concepts mirror their head version's snapshot for fast list rendering. See [DESIGN_EDITOR.md](DESIGN_EDITOR.md) and [COLLECTION_WORKFLOW.md](COLLECTION_WORKFLOW.md).
+
 ## Persisted demo state
-`raco-brand` (brand-store) validates on load and falls back to fixtures. `studio-store` persists under `raco-studio` with an explicit `version`. `migrateState()` upgrades legacy keys (`raco-studio-v1`, `raco-studio-v2`), fills fields added since, drops unrepairable records, and re-validates same-version payloads so corrupt storage falls back to fixtures instead of breaking the UI. Bump `STORE_VERSION` and extend `migrateState()` whenever the persisted shape changes.
+`raco-brand` (brand-store) validates on load and falls back to fixtures. `studio-store` persists under `raco-studio` with an explicit `version`. `migrateState()` upgrades legacy keys (`raco-studio-v1`, `raco-studio-v2`), fills fields added since, drops unrepairable records, and re-validates same-version payloads so corrupt storage falls back to fixtures instead of breaking the UI. v5 also maps legacy `shortlisted` → `in_review`, backfills version numbers, keeps edits to fixture concepts, and drops annotations/exceptions whose version no longer exists. Bump `STORE_VERSION` and extend `migrateState()` whenever the persisted shape changes.
 
 Reference previews are object URLs: revoked on remove, on `clearReferences()`, and on `pagehide`. They are never persisted.
 

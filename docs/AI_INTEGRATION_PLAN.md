@@ -23,6 +23,9 @@ Implemented in Phase 3: `buildBrandContext(mode, approvedVersion, { strictness, 
 
 Pilot path for real providers: map `preferred*`/`avoid*` to positive/negative prompt terms and ControlNet/IP-Adapter inputs, `referenceIds` to retrieved image conditioning, and replace `evaluateConcept()` with a VLM- or embedding-based consistency scorer that returns the same `RuleCheck` shape.
 
+## Editing contract (Phase 4)
+`editConcept(EditRequest)` now carries `parentVersionId`, `instruction`, optional normalised `region` (→ mask), `maskAssetId` and the parent `base` snapshot; `getEditResult(jobId)` returns a `ConceptVersion`. The demo adapter interprets controlled vocabulary only and refuses anything else at request time. A real instruction-editing/inpainting provider can replace it without changing the Editor: map `region` to a mask, the parent image asset to the source, and return the new image asset id on the version.
+
 ## Brand DNA without fine-tuning
 1. Structured `BrandProfile` (style rules, negative rules, palette, silhouettes, fabrics), versioned and approved by a human.
 2. Each rule cites source assets.

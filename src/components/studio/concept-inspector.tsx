@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Columns2, GitBranch, Heart } from "lucide-react";
+import Link from "next/link";
+import { Columns2, GitBranch, Heart, PenTool } from "lucide-react";
 import { GarmentPlaceholder } from "@/components/shared/garment-placeholder";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
@@ -145,6 +146,10 @@ export function ConceptInspector({ concept, onVariation }: { concept: Concept; o
           <Columns2 /> {compareIds.includes(concept.id) ? "Comparing" : "Compare"}
         </Button>
       </div>
+
+      <Button variant="outline" size="sm" className="w-full rounded-none" render={<Link href={`/editor?concept=${encodeURIComponent(concept.id)}`} />} nativeButton={false}>
+        <PenTool /> Open in Design Editor
+      </Button>
 
       <div className="space-y-2">
         <p className="t-meta">Save to collection</p>

@@ -55,12 +55,17 @@ export function GarmentPlaceholder({
   palette,
   silhouette = "tailored",
   seed = 0,
+  view = "front",
+  label = "Schematic",
   className,
 }: {
   category: GarmentCategory;
   palette: PaletteColor[];
   silhouette?: Silhouette;
   seed?: number | null;
+  /** Back view drops front construction marks and shows a centre-back seam. */
+  view?: "front" | "back";
+  label?: string | null;
   className?: string;
 }) {
   const main = palette[0]?.hex ?? "#CFC6B8";
@@ -72,7 +77,7 @@ export function GarmentPlaceholder({
     <div
       className={cn("relative flex items-center justify-center overflow-hidden bg-paper-2", className)}
       role="img"
-      aria-label={`Schematic ${silhouette} ${category} placeholder`}
+      aria-label={`Schematic ${silhouette} ${category} placeholder, ${view} view`}
     >
       <svg viewBox="0 0 100 140" className="h-[78%] w-auto" aria-hidden>
         <g transform={`translate(50 0) scale(${sx} 1) translate(-50 0)`}>
@@ -84,12 +89,16 @@ export function GarmentPlaceholder({
           <path d={PATHS[category]} fill={main} />
           {accent && <rect x="0" y="104" width="100" height="40" fill={accent} clipPath={`url(#${clipId})`} />}
           <g clipPath={`url(#${clipId})`}>
-            <Details category={category} variant={variant} />
+            {view === "front" ? (
+              <Details category={category} variant={variant} />
+            ) : (
+              <line x1="50" y1="14" x2="50" y2="130" stroke={LINE} strokeWidth="0.7" />
+            )}
           </g>
           <path d={PATHS[category]} fill="none" stroke="rgba(23,23,23,0.35)" strokeWidth="0.6" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
         </g>
       </svg>
-      <span className="absolute bottom-2 left-2 font-mono text-[9px] uppercase tracking-[0.1em] text-stone">Schematic</span>
+      {label && <span className="absolute bottom-2 left-2 font-mono text-[9px] uppercase tracking-[0.1em] text-stone">{label}</span>}
     </div>
   );
 }

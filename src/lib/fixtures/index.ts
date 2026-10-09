@@ -91,7 +91,7 @@ export const CONCEPTS: Concept[] = SEEDS.map(([id, title, category, palette, fab
   description: `${title} in ${fabric.toLowerCase()}. Archive concept from the ${collectionId === "col_resort" ? "Resort27" : "AW26"} development cycle.`,
   prompt: `${title}. ${fabric}, ${palette.map((p) => p.name.toLowerCase()).join(" and ")} palette, studio editorial lighting, no logos.`,
   mode,
-  status: i % 5 === 0 ? "approved" : i % 3 === 0 ? "shortlisted" : "draft",
+  status: i % 5 === 0 ? "approved" : i % 3 === 0 ? "in_review" : "draft",
   palette,
   fabrics: [fabric],
   favorite: Boolean(fav),
@@ -104,6 +104,8 @@ export const CONCEPTS: Concept[] = SEEDS.map(([id, title, category, palette, fab
   createdAt: new Date(Date.UTC(2026, 9, 8 - (i % 7), 9 + i)).toISOString(),
 }));
 
+const AW26_SOFT = new Set(["dress", "knitwear", "skirt", "trousers"]);
+
 export const COLLECTIONS: Collection[] = [
   {
     id: "col_aw26",
@@ -112,7 +114,13 @@ export const COLLECTIONS: Collection[] = [
     season: "AW26",
     status: "in_review",
     description: "Tailored outerwear and columns in stone, espresso and ink.",
+    creativeDirection: "Architecture softened: extended shoulders over fluid columns, worn tonal.",
+    notes: "",
+    groups: [{ id: "grp_outer", name: "Outerwear & tailoring" }, { id: "grp_soft", name: "Soft columns" }],
     conceptIds: CONCEPTS.filter((c) => c.collectionId === "col_aw26").map((c) => c.id),
+    lookMeta: Object.fromEntries(
+      CONCEPTS.filter((c) => c.collectionId === "col_aw26").map((c) => [c.id, { note: "", tags: [], groupId: AW26_SOFT.has(c.category) ? "grp_soft" : "grp_outer" }]),
+    ),
     updatedAt: "2026-10-08T16:40:00Z",
   },
   {
@@ -122,6 +130,9 @@ export const COLLECTIONS: Collection[] = [
     season: "Resort27",
     status: "concept",
     description: "Unlined resortwear in washed linen and poplin.",
+    creativeDirection: "Salt-washed ease: relaxed volumes, natural fibres, nothing lined.",
+    notes: "",
+    groups: [],
     conceptIds: CONCEPTS.filter((c) => c.collectionId === "col_resort").map((c) => c.id),
     updatedAt: "2026-10-07T11:05:00Z",
   },

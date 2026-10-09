@@ -25,7 +25,7 @@ export const NAV: { group: string; items: NavItem[] }[] = [
     items: [
       { href: "/", label: "Overview", icon: LayoutGrid },
       { href: "/studio", label: "Design Studio", icon: Sparkles, capability: "simulated" },
-      { href: "/editor", label: "Design Editor", icon: PenTool, capability: "simulated" },
+      { href: "/editor", label: "Design Editor", icon: PenTool },
     ],
   },
   {

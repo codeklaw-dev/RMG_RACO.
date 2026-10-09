@@ -2,12 +2,13 @@
 // Job progress is derived from elapsed time on an injectable clock, so it
 // behaves like a polled queue in the UI and is fully controllable in tests.
 // Stages describe demonstration progress, not model inference.
-import type { Concept, GenerationJob, ID, JobType } from "@/lib/types/domain";
+import type { Concept, ConceptVersion, GenerationJob, ID, JobType } from "@/lib/types/domain";
 import { JOBS } from "@/lib/fixtures";
 import {
   type AIProvider,
   type BrandAnalysisRequest,
   type EditRequest,
+  type EditRequestInput,
   type GenerateRequest,
   type GenerateRequestInput,
   type JobRef,
@@ -17,6 +18,7 @@ import {
   generateRequestSchema,
 } from "./ai-provider";
 import { synthesizeConcepts } from "./demo-engine";
+import { applyEdit, parseInstruction } from "./demo-edit";
 import { TERMINAL, transition } from "./job-machine";
 
 export const QUEUE_MS = 800;
@@ -41,7 +43,9 @@ interface Tracked {
   job: GenerationJob;
   startedAt: number;
   request: GenerateRequest | null;
+  edit: EditRequest | null;
   results: Concept[];
+  version: ConceptVersion | null;
   fixtureResultIds: ID[];
 }
 
@@ -53,11 +57,11 @@ export class DemoAIAdapter implements AIProvider {
 
   constructor(private now: () => number = () => Date.now()) {
     for (const job of JOBS) {
-      this.jobs.set(job.id, { job, startedAt: 0, request: null, results: [], fixtureResultIds: job.resultConceptIds });
+      this.jobs.set(job.id, { job, startedAt: 0, request: null, edit: null, results: [], version: null, fixtureResultIds: job.resultConceptIds });
     }
   }
 
-  private enqueue(type: JobType, orgId: ID, label: string, key: string | null, request: GenerateRequest | null, fixtureIds: ID[] = []): JobRef {
+  private enqueue(type: JobType, orgId: ID, label: string, key: string | null, request: GenerateRequest | null, fixtureIds: ID[] = [], edit: EditRequest | null = null): JobRef {
     const existing = key ? this.idempotency.get(key) : undefined;
     if (existing) return { jobId: existing };
     const id = `job_${type}_${this.now().toString(36)}_${++this.seq}`;
@@ -65,7 +69,7 @@ export class DemoAIAdapter implements AIProvider {
       id, orgId, type, provider: this.info.id, status: "draft", progress: 0, label, stage: null, attempt: 1,
       errorCode: null, costEstimate: null, resultConceptIds: [], createdAt: new Date(this.now()).toISOString(),
     };
-    this.jobs.set(id, { job: transition(draft, { type: "submit" }), startedAt: this.now(), request, results: [], fixtureResultIds: fixtureIds });
+    this.jobs.set(id, { job: transition(draft, { type: "submit" }), startedAt: this.now(), request, edit, results: [], version: null, fixtureResultIds: fixtureIds });
     if (key) this.idempotency.set(key, id);
     return { jobId: id };
   }
@@ -78,10 +82,14 @@ export class DemoAIAdapter implements AIProvider {
     return this.enqueue("generate", req.orgId, label, req.idempotencyKey, req);
   }
 
-  async editConcept(req: EditRequest) {
-    const parsed = editRequestSchema.safeParse(req);
+  async editConcept(input: EditRequestInput) {
+    const parsed = editRequestSchema.safeParse(input);
     if (!parsed.success) throw new ProviderError("validation", parsed.error.issues[0].message);
-    return this.enqueue("edit", req.orgId, req.instruction.slice(0, 48), req.idempotencyKey, null, [req.conceptId]);
+    const req = parsed.data;
+    if (!parseInstruction(req.instruction, req.base, req.region).changes.length) {
+      throw new ProviderError("validation", "No supported change found. Name a silhouette, material, colour or construction detail.");
+    }
+    return this.enqueue("edit", req.orgId, req.instruction.slice(0, 48), req.idempotencyKey, null, [req.conceptId], req);
   }
 
   async analyzeBrand(req: BrandAnalysisRequest) {
@@ -115,6 +123,31 @@ export class DemoAIAdapter implements AIProvider {
       });
       return;
     }
+    if (progress >= 1 && t.edit) {
+      const e = t.edit;
+      const { changes } = parseInstruction(e.instruction, e.base, e.region);
+      const id = `${e.conceptId}_${t.job.id}`;
+      t.version = {
+        id,
+        conceptId: e.conceptId,
+        parentId: e.parentVersionId,
+        number: 0, // assigned by the store when appended
+        summary: changes.map((c) => `${c.attribute}: ${c.to}`).join(" · "),
+        brandProfileVersion: null, // inherited from the concept when appended
+        provenance: "Simulated refinement by demo adapter · deterministic vocabulary match · no model inference",
+        imageAssetId: `placeholder/${id}`,
+        operation: "edit",
+        instruction: e.instruction,
+        region: e.region,
+        changes,
+        snapshot: applyEdit(e.base, changes, e.instruction),
+        capability: "simulated",
+        jobId: t.job.id,
+        createdAt: new Date(this.now()).toISOString(),
+      };
+      t.job = transition(t.job, { type: "succeed", resultConceptIds: [e.conceptId] });
+      return;
+    }
     if (progress >= 1) {
       t.results = t.request ? synthesizeConcepts(t.request, { jobId: t.job.id, now: new Date(this.now()).toISOString() }) : [];
       const ids = t.request ? t.results.map((c) => c.id) : t.fixtureResultIds;
@@ -134,6 +167,12 @@ export class DemoAIAdapter implements AIProvider {
     const t = this.get(jobId);
     this.advance(t);
     return t.job.status === "succeeded" ? t.results : [];
+  }
+
+  async getEditResult(jobId: ID): Promise<ConceptVersion | null> {
+    const t = this.get(jobId);
+    this.advance(t);
+    return t.job.status === "succeeded" ? t.version : null;
   }
 
   async cancelJob(jobId: ID) {

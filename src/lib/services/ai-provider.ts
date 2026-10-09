@@ -8,6 +8,7 @@ import {
   SILHOUETTES,
   type CapabilityState,
   type Concept,
+  type ConceptVersion,
   type GenerationJob,
   type ID,
 } from "@/lib/types/domain";
@@ -81,15 +82,31 @@ export const generateRequestSchema = z
 export type GenerateRequest = z.infer<typeof generateRequestSchema>;
 export type GenerateRequestInput = z.input<typeof generateRequestSchema>;
 
+const unit = z.number().min(0).max(1);
+export const regionSchema = z.object({ x: unit, y: unit, w: unit.refine((v) => v > 0), h: unit.refine((v) => v > 0) });
+
 export const editRequestSchema = z.object({
   orgId: z.string().min(1),
   conceptId: z.string().min(1),
   parentVersionId: z.string().min(1),
-  instruction: z.string().trim().min(3).max(1000),
+  instruction: z.string().trim().min(3, "Describe the change").max(1000),
+  /** Selected canvas region (normalised). Real adapters turn this into a mask. */
+  region: regionSchema.nullable().default(null),
   maskAssetId: z.string().nullable().default(null),
+  /** State of the parent version; the demo adapter edits this, real adapters edit the image. */
+  base: z.object({
+    title: z.string(),
+    silhouette: z.enum(SILHOUETTES),
+    palette: z.array(z.object({ name: z.string(), hex })),
+    fabrics: z.array(z.string()),
+    details: z.array(z.string()).optional(),
+    description: z.string(),
+    seed: z.number().nullable(),
+  }),
   idempotencyKey: z.string().min(8),
 });
 export type EditRequest = z.infer<typeof editRequestSchema>;
+export type EditRequestInput = z.input<typeof editRequestSchema>;
 
 export interface BrandAnalysisRequest {
   orgId: ID;
@@ -117,12 +134,14 @@ export interface ProviderInfo {
 export interface AIProvider {
   readonly info: ProviderInfo;
   generateConcepts(req: GenerateRequestInput): Promise<JobRef>;
-  editConcept(req: EditRequest): Promise<JobRef>;
+  editConcept(req: EditRequestInput): Promise<JobRef>;
   analyzeBrand(req: BrandAnalysisRequest): Promise<JobRef>;
   virtualTryOn(req: TryOnRequest): Promise<JobRef>;
   getJob(jobId: ID): Promise<GenerationJob>;
   /** Concepts produced by a succeeded job. Empty for any other state. */
   getResults(jobId: ID): Promise<Concept[]>;
+  /** New version produced by a succeeded edit job; null otherwise. */
+  getEditResult(jobId: ID): Promise<ConceptVersion | null>;
   cancelJob(jobId: ID): Promise<void>;
   /** Re-queue a failed or canceled job with the same request. */
   retryJob(jobId: ID): Promise<void>;

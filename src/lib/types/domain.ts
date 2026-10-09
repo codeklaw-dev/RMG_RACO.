@@ -57,6 +57,59 @@ export interface Asset {
   provenance: string;
 }
 
+export interface LookMeta {
+  note: string;
+  tags: string[];
+  groupId?: ID | null;
+}
+
+/** Design direction section within a collection board. */
+export interface CollectionGroup {
+  id: ID;
+  name: string;
+}
+
+export type AnnotationCategory = "fit" | "construction" | "material" | "colour" | "detail" | "general";
+
+/** Pin on a specific concept version, in normalised (0–1) canvas coordinates. */
+export interface DesignAnnotation {
+  id: ID;
+  orgId: ID;
+  conceptId: ID;
+  versionId: ID;
+  x: number;
+  y: number;
+  view: "front" | "back";
+  text: string;
+  category: AnnotationCategory;
+  resolved: boolean;
+  createdAt: ISODate;
+  updatedAt: ISODate;
+}
+
+/** One review transition on a concept (simulated local action in the demo). */
+export interface DesignReview {
+  id: ID;
+  conceptId: ID;
+  versionId: ID;
+  from: ConceptStatus;
+  to: ConceptStatus;
+  note: string;
+  actor: string;
+  at: ISODate;
+}
+
+/** A designer knowingly overriding a brand rule, with a reason. The profile is not changed. */
+export interface BrandException {
+  id: ID;
+  conceptId: ID;
+  versionId: ID;
+  ruleId: ID;
+  brandProfileVersion: number;
+  reason: string;
+  at: ISODate;
+}
+
 export type CollectionStatus = "concept" | "in_review" | "approved" | "archived";
 
 export interface Collection {
@@ -66,11 +119,18 @@ export interface Collection {
   season: Season;
   status: CollectionStatus;
   description: string;
+  /** Ordered look ids. Order is the presentation order. */
   conceptIds: ID[];
+  /** Per-look notes and tags, scoped to this collection. */
+  lookMeta?: Record<ID, LookMeta>;
+  creativeDirection?: string;
+  notes?: string;
+  groups?: CollectionGroup[];
   updatedAt: ISODate;
 }
 
-export type ConceptStatus = "draft" | "shortlisted" | "approved" | "rejected";
+/** Concept review status — separate from Brand DNA and collection approval. */
+export type ConceptStatus = "draft" | "in_review" | "approved" | "rejected" | "archived";
 
 export interface Concept {
   id: ID;
@@ -88,6 +148,9 @@ export interface Concept {
   fabrics: string[];
   /** Construction details from the controlled vocabulary (lib/brand/vocabulary). */
   details?: string[];
+  /** Designer tags and creative notes (metadata only; not rendered). */
+  tags?: string[];
+  notes?: string;
   favorite: boolean;
   capability: CapabilityState;
   currentVersionId: ID;
@@ -100,15 +163,51 @@ export interface Concept {
   createdAt: ISODate;
 }
 
-export type VersionOperation = "generate" | "edit" | "variation" | "try_on";
+/**
+ * generate = original · edit = conversational refinement · manual = property edit
+ * restore = copy of an earlier version · reopen = new draft after rejection
+ */
+export type VersionOperation = "generate" | "edit" | "manual" | "restore" | "reopen" | "variation" | "try_on";
 
+/** The visual + descriptive state a version captures. Concepts mirror their current version. */
+export type ConceptSnapshot = Pick<Concept, "title" | "silhouette" | "palette" | "fabrics" | "details" | "description" | "seed" | "tags" | "notes">;
+
+/** Normalised (0–1) rectangle on the canvas. */
+export interface Region {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export interface VersionChange {
+  attribute: "silhouette" | "material" | "colour" | "accent" | "detail" | "title" | "description" | "tags" | "notes";
+  from: string;
+  to: string;
+}
+
+/**
+ * Immutable once created. A revision is a new version of the same concept;
+ * a variation is a different concept linked by Concept.parentConceptId.
+ */
 export interface ConceptVersion {
   id: ID;
   conceptId: ID;
   parentId: ID | null;
+  /** 1-based, sequential per concept. */
+  number: number;
+  summary: string;
+  /** Brand DNA version that generated the concept; inherited, never rewritten. */
+  brandProfileVersion: number | null;
+  provenance: string;
   imageAssetId: ID;
   operation: VersionOperation;
   instruction: string;
+  region: Region | null;
+  changes: VersionChange[];
+  snapshot: ConceptSnapshot;
+  capability: CapabilityState;
+  jobId: ID | null;
   createdAt: ISODate;
 }
 
