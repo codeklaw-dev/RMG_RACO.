@@ -83,26 +83,40 @@ const KNOWN_COLOURS: Record<string, string> = Object.fromEntries(
 );
 const toColour = (hex: string): PaletteColor => ({ hex, name: KNOWN_COLOURS[hex.toUpperCase()] ?? hex.toUpperCase() });
 
-function choosePalette(req: GenerateRequest, rng: () => number): PaletteColor[] {
+/** Up to two distinct colours from a pool; never returns undefined entries. */
+function pickTwo(rng: () => number, pool: PaletteColor[]): PaletteColor[] {
+  const unique = pool.filter((c, i) => pool.findIndex((d) => d.hex === c.hex) === i);
+  if (!unique.length) return [];
+  const a = pick(rng, unique);
+  const rest = unique.filter((c) => c.hex !== a.hex);
+  return rest.length ? [a, pick(rng, rest)] : [a];
+}
+
+/**
+ * Palette fallback order:
+ *  Brand  — chosen ∩ brand → brand palette → curated explore palette
+ *  Hybrid — one brand colour + one chosen/explore colour (distinct); brand empty → explore only
+ *  Explore — chosen → curated explore palette
+ */
+export function choosePalette(req: GenerateRequest, rng: () => number): PaletteColor[] {
   const chosen = req.palette.map(toColour);
   const brand = (req.brandContext?.palette ?? []).map(toColour);
+  const fallback = () => pick(rng, EXPLORE_PALETTES);
   if (req.mode === "brand") {
-    const pool = chosen.length ? chosen.filter((c) => brand.some((b) => b.hex === c.hex)) : [];
-    const base = pool.length ? pool : brand;
-    const a = pick(rng, base);
-    const b = pick(rng, base.filter((c) => c.hex !== a.hex));
-    return b ? [a, b] : [a];
+    const inBrand = chosen.filter((c) => brand.some((b) => b.hex === c.hex));
+    const result = pickTwo(rng, inBrand.length ? inBrand : brand);
+    return result.length ? result : fallback();
   }
   if (req.mode === "hybrid") {
-    const explore = chosen.length ? chosen : pick(rng, EXPLORE_PALETTES);
-    return [pick(rng, brand), pick(rng, explore)];
+    const explore = chosen.length ? chosen : fallback();
+    const anchor = brand.length ? pick(rng, brand) : null;
+    const accentPool = explore.filter((c) => c.hex !== anchor?.hex);
+    const accent = accentPool.length ? pick(rng, accentPool) : null;
+    const result = [anchor, accent].filter((c): c is PaletteColor => c !== null);
+    return result.length ? result : fallback();
   }
-  if (chosen.length) {
-    const a = pick(rng, chosen);
-    const b = pick(rng, chosen.filter((c) => c.hex !== a.hex));
-    return b ? [a, b] : [a];
-  }
-  return pick(rng, EXPLORE_PALETTES);
+  const result = pickTwo(rng, chosen);
+  return result.length ? result : fallback();
 }
 
 function chooseSilhouette(req: GenerateRequest, index: number, rng: () => number): Silhouette {

@@ -30,6 +30,8 @@ interface SessionState {
   toggleCompare: (id: ID) => void;
   addReferences: (refs: LocalReference[]) => void;
   removeReference: (id: ID) => void;
+  /** Revokes every preview object URL and detaches references from the brief. */
+  clearReferences: () => void;
   setViewJob: (id: ID | null) => void;
 }
 
@@ -64,5 +66,17 @@ export const useStudioSession = create<SessionState>()((set) => ({
       if (ref) URL.revokeObjectURL(ref.previewUrl);
       return { references: s.references.filter((r) => r.id !== id), brief: { ...s.brief, referenceIds: s.brief.referenceIds.filter((x) => x !== id) } };
     }),
+  clearReferences: () =>
+    set((s) => {
+      s.references.forEach((r) => URL.revokeObjectURL(r.previewUrl));
+      return { references: [], brief: { ...s.brief, referenceIds: [] } };
+    }),
   setViewJob: (viewJobId) => set({ viewJobId }),
 }));
+
+// Object URLs pin file data in memory until revoked; release them when the tab is hidden for good.
+if (typeof window !== "undefined") {
+  window.addEventListener("pagehide", (e) => {
+    if (!e.persisted) useStudioSession.getState().clearReferences();
+  });
+}

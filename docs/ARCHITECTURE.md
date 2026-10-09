@@ -45,5 +45,13 @@ Next.js App Router (src/app/(studio)/*)
 5. Variations set `variationOf`; results carry `parentConceptId`.
 6. `saveToCollection` enforces org match and no duplicate membership. Collection pages and Overview read the same store.
 
+## Persisted demo state
+`studio-store` persists under `raco-studio` with an explicit `version`. `migrateState()` upgrades legacy keys (`raco-studio-v1`, `raco-studio-v2`), fills fields added since, drops unrepairable records, and re-validates same-version payloads so corrupt storage falls back to fixtures instead of breaking the UI. Bump `STORE_VERSION` and extend `migrateState()` whenever the persisted shape changes.
+
+Reference previews are object URLs: revoked on remove, on `clearReferences()`, and on `pagehide`. They are never persisted.
+
+## Deployment
+Vercel. `vercel.json` pins `"framework": "nextjs"` (the project was created before the app existed and defaulted to a static `public/` output).
+
 ## Pilot path
 Postgres + Prisma (+ pgvector) for entities and reference embeddings · S3-compatible private storage with signed uploads · Redis queue + GPU workers behind `AIProvider` · auth with roles from `Role` · `AuditEvent` on every mutation.

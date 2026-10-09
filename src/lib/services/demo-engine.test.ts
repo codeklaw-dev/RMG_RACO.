@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { BRAND_PROFILE } from "@/lib/fixtures";
 import { makeRequest } from "@/test/factories";
 import { generateRequestSchema } from "./ai-provider";
-import { synthesizeConcepts } from "./demo-engine";
+import { choosePalette, synthesizeConcepts } from "./demo-engine";
 
 const run = (patch = {}, jobId = "job_x") =>
   synthesizeConcepts(generateRequestSchema.parse(makeRequest(patch)), { jobId, now: "2026-10-09T00:00:00Z" });
@@ -35,5 +35,33 @@ describe("demo engine", () => {
 
   it("links variations to their source concept", () => {
     expect(run({ variationOf: "cpt_01" }).every((c) => c.parentConceptId === "cpt_01")).toBe(true);
+  });
+});
+
+describe("palette fallback", () => {
+  const req = (patch: object, brandPalette: string[] | null) => {
+    const base = generateRequestSchema.parse(makeRequest(patch));
+    return { ...base, brandContext: base.brandContext && brandPalette ? { ...base.brandContext, palette: brandPalette } : base.brandContext };
+  };
+  const rng = () => 0.5;
+
+  it("never returns empty or undefined colours when the brand palette is empty", () => {
+    for (const mode of ["brand", "hybrid"] as const) {
+      const p = choosePalette(req({ mode }, []), rng);
+      expect(p.length).toBeGreaterThan(0);
+      expect(p.every((c) => c && /^#/.test(c.hex))).toBe(true);
+    }
+  });
+
+  it("does not duplicate a colour in Hybrid when brand and chosen palettes overlap", () => {
+    const hex = BRAND_PROFILE.palette[0].hex;
+    const p = choosePalette(req({ mode: "hybrid", palette: [hex] }, [hex]), rng);
+    expect(new Set(p.map((c) => c.hex)).size).toBe(p.length);
+  });
+
+  it("Brand mode ignores chosen colours outside the brand palette", () => {
+    const p = choosePalette(req({ mode: "brand", palette: ["#5F6B4E"] }, null), rng);
+    const brandHexes = BRAND_PROFILE.palette.map((c) => c.hex);
+    expect(p.every((c) => brandHexes.includes(c.hex))).toBe(true);
   });
 });
