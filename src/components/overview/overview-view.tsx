@@ -23,14 +23,24 @@ const QUICK_ACTIONS = [
 
 export function OverviewView() {
   const concepts = useStudioStore((s) => s.concepts);
-  const collections = repo.listCollections(ORG.id);
+  const collections = useStudioStore((s) => s.collections).filter((c) => c.orgId === ORG.id);
   const brand = repo.getBrandProfile(ORG.id);
   const [jobs, setJobs] = useState<GenerationJob[]>([]);
 
+  const studioJobs = useStudioStore((s) => s.jobs);
   useEffect(() => {
     const provider = getAIProvider();
-    setJobs(provider.listJobs(ORG.id));
-  }, []);
+    const tick = () => {
+      const fromAdapter = provider.listJobs(ORG.id);
+      const known = new Set(fromAdapter.map((j) => j.id));
+      // Jobs from earlier sessions live only in the persisted store.
+      setJobs([...fromAdapter, ...studioJobs.map((r) => r.job).filter((j) => !known.has(j.id))]
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 5));
+    };
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, [studioJobs]);
 
   const recent = [...concepts].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 8);
   const firstName = CURRENT_USER.name.split(" ")[0];
@@ -91,7 +101,7 @@ export function OverviewView() {
                 <JobRow key={j.id} job={j} />
               ))}
             </ul>
-            <p className="t-meta">Demo adapter · simulated queue</p>
+            <p className="t-meta">Demo adapter · simulated queue, no model inference</p>
           </Section>
 
           {brand && (
@@ -128,7 +138,7 @@ export function OverviewView() {
               >
                 <div className="grid grid-cols-3 gap-1">
                   {looks.slice(0, 3).map((c) => (
-                    <GarmentPlaceholder key={c.id} category={c.category} palette={c.palette} className="aspect-[3/4]" />
+                    <GarmentPlaceholder key={c.id} category={c.category} palette={c.palette} silhouette={c.silhouette} seed={c.seed} className="aspect-[3/4]" />
                   ))}
                 </div>
                 <div className="mt-3 flex items-baseline justify-between">

@@ -13,12 +13,18 @@
 | sonner | MIT | Toasts |
 | clsx, tailwind-merge, class-variance-authority | MIT | Class utilities |
 
+## Dev / test (Phase 2)
+| Package | Licence | Why |
+|---|---|---|
+| vitest 3 | MIT | Unit + component tests |
+| @testing-library/react, user-event, jest-dom | MIT | UI interaction tests |
+| jsdom | MIT | Browser environment for tests |
+
 ## Planned, add only when the phase needs it
 | Package | Phase | Why |
 |---|---|---|
 | @dnd-kit/core | 4 | Accessible collection reordering |
 | react-konva | 4 | Mask/region tool in editor |
-| react-hook-form | 2 | Studio prompt builder |
 | @tanstack/react-query | Pilot | Server state once `/api/v1` exists |
 | prisma, pg | Pilot | Database |
 

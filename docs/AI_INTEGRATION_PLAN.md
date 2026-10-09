@@ -1,7 +1,9 @@
 # AI Integration Plan
 
 ## Contract
-`src/lib/services/ai-provider.ts` — `generateConcepts`, `editConcept`, `analyzeBrand`, `virtualTryOn`, `getJob`, `cancelJob`. All return job ids; results attach to `ConceptVersion` with provenance (prompt, seed, model/version, source assets, licence).
+`src/lib/services/ai-provider.ts` — `generateConcepts`, `editConcept`, `analyzeBrand`, `virtualTryOn`, `getJob`, `getResults`, `cancelJob`, `retryJob`. Job states are enforced by `job-machine.ts`.
+
+`GenerateRequest` carries: prompt, category, silhouette, materials, palette, mode, `brandContext`, target collection, reference asset ids, count (2–4), creativity, seed, `variationOf`, idempotency key. `simulateFailure` is demo-only. All return job ids; results attach to `ConceptVersion` with provenance (prompt, seed, model/version, source assets, licence).
 
 Real adapters run **server-side only**, behind `/api/v1`, with timeouts, retries, cancellation, idempotency and per-org cost caps.
 
@@ -15,6 +17,9 @@ Real adapters run **server-side only**, behind `/api/v1`, with timeouts, retries
 | Virtual try-on | FASHN API / FASHN VTON, IDM-VTON | Licences differ and some are non-commercial — legal review required. Visual approximation only. |
 
 Nothing is integrated in the demo. Every output is labelled **Simulated**.
+
+## Studio ↔ Brand DNA seam (Phase 3)
+`buildBrandContext(mode, profile)` in `src/lib/studio/brief.ts` is the single place brand conditioning is assembled. Today it sends profile id/version/approval, palette and rule ids, plus an exploration weight (Brand 0.2, Hybrid 0.5). Phase 3 extends `brandContextSchema` with rule text, retrieved reference ids and consistency constraints, and feeds it the edited, approved profile from a Brand DNA store. The Studio UI and `useJobRunner` do not change.
 
 ## Brand DNA without fine-tuning
 1. Structured `BrandProfile` (style rules, negative rules, palette, silhouettes, fabrics), versioned and approved by a human.

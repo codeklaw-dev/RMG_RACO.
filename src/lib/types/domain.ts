@@ -21,14 +21,16 @@ export interface User {
   role: Role;
 }
 
-export type GarmentCategory =
-  | "outerwear"
-  | "dress"
-  | "tailoring"
-  | "shirt"
-  | "trousers"
-  | "skirt"
-  | "knitwear";
+export const GARMENT_CATEGORIES = [
+  "tailoring", "dress", "shirt", "trousers", "jacket", "skirt", "knitwear", "outerwear",
+] as const;
+export type GarmentCategory = (typeof GARMENT_CATEGORIES)[number];
+
+export const SILHOUETTES = ["tailored", "oversized", "relaxed", "structured", "fitted", "draped"] as const;
+export type Silhouette = (typeof SILHOUETTES)[number];
+
+export const MATERIALS = ["cotton", "wool", "linen", "silk", "denim", "technical"] as const;
+export type Material = (typeof MATERIALS)[number];
 
 export type DesignMode = "explore" | "brand" | "hybrid";
 
@@ -101,6 +103,8 @@ export interface Concept {
   brandProfileVersion: number | null;
   title: string;
   category: GarmentCategory;
+  silhouette: Silhouette;
+  description: string;
   prompt: string;
   mode: DesignMode;
   status: ConceptStatus;
@@ -109,6 +113,12 @@ export interface Concept {
   favorite: boolean;
   capability: CapabilityState;
   currentVersionId: ID;
+  /** Source concept when this is a variation. Originals are never overwritten. */
+  parentConceptId: ID | null;
+  /** Job that produced it (null for seed fixtures). */
+  jobId: ID | null;
+  seed: number | null;
+  provenance: string;
   createdAt: ISODate;
 }
 
@@ -135,6 +145,9 @@ export interface GenerationJob {
   status: JobStatus;
   progress: number; // 0–1
   label: string;
+  /** Human-readable stage. For the demo adapter this is demonstration progress, not inference. */
+  stage: string | null;
+  attempt: number;
   errorCode: string | null;
   costEstimate: number | null; // USD, null when unknown
   resultConceptIds: ID[];

@@ -1,0 +1,168 @@
+// Deterministic concept synthesis for the demo adapter.
+// Same request + seed → same concepts (ids aside). Nothing here is AI inference:
+// it combines the submitted attributes with curated vocabulary via a seeded PRNG.
+import type { Concept, GarmentCategory, Material, PaletteColor, Silhouette } from "@/lib/types/domain";
+import { SILHOUETTES } from "@/lib/types/domain";
+import type { GenerateRequest } from "./ai-provider";
+
+/** mulberry32 — small, fast, deterministic. */
+export function createRng(seed: number) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+export function hashString(s: string) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return h >>> 0;
+}
+
+const pick = <T,>(rng: () => number, xs: readonly T[]) => xs[Math.floor(rng() * xs.length)];
+
+const NOUN: Record<GarmentCategory, string[]> = {
+  tailoring: ["blazer", "single-breasted jacket", "tuxedo jacket", "waistcoat"],
+  dress: ["column dress", "slip dress", "shirt dress", "wrap dress"],
+  shirt: ["shirt", "tunic shirt", "camp-collar shirt", "bib-front shirt"],
+  trousers: ["trouser", "wide-leg trouser", "barrel-leg trouser", "cigarette trouser"],
+  jacket: ["field jacket", "chore jacket", "bomber", "cropped jacket"],
+  skirt: ["midi skirt", "pencil skirt", "sarong skirt", "pleated skirt"],
+  knitwear: ["rib sweater", "cardigan", "funnel-neck knit", "knitted vest"],
+  outerwear: ["overcoat", "trench", "cocoon coat", "car coat"],
+};
+
+const DETAIL: Record<GarmentCategory, string[]> = {
+  tailoring: ["Architectural-shoulder", "Collarless", "Soft-construction", "Cut-away"],
+  dress: ["Bias-cut", "Asymmetric-hem", "Open-back", "Seam-sculpted"],
+  shirt: ["Balloon-sleeve", "Concealed-placket", "Dropped-shoulder", "Pleat-back"],
+  trousers: ["Double-pleat", "Seam-front", "Drawstring", "High-rise"],
+  jacket: ["Utility-pocket", "Funnel-collar", "Boxy", "Raglan"],
+  skirt: ["Wrap-front", "Panelled", "Knife-pleat", "Split-hem"],
+  knitwear: ["Ribbed", "Fully-fashioned", "Ottoman-stitch", "Cable-panel"],
+  outerwear: ["Extended-shoulder", "Dropped-yoke", "Storm-flap", "Blanket"],
+};
+
+const CLOSURE = ["concealed placket", "single covered button", "tie fastening", "asymmetric snap closure", "clean facings, no visible hardware"];
+const FINISH = ["raw-cut edges", "bound seams", "topstitched seams", "hand-felled hems", "bonded edges"];
+
+const FABRIC: Record<Material, string[]> = {
+  cotton: ["cotton poplin", "cotton gabardine", "brushed cotton twill"],
+  wool: ["lightweight wool", "double-faced wool", "wool crepe"],
+  linen: ["washed linen", "linen twill", "linen-silk"],
+  silk: ["silk crepe", "silk satin", "silk faille"],
+  denim: ["rigid selvedge denim", "washed denim", "black denim"],
+  technical: ["bonded technical shell", "recycled nylon taffeta", "matte technical twill"],
+};
+
+const SILHOUETTE_NOTE: Record<Silhouette, string> = {
+  tailored: "a precise tailored line",
+  oversized: "generous oversized proportions",
+  relaxed: "an easy, relaxed fall",
+  structured: "a structured, architectural frame",
+  fitted: "a close, fitted line",
+  draped: "fluid draping from the shoulder",
+};
+
+/** Curated exploratory palettes used when Explore has no palette chosen. */
+export const EXPLORE_PALETTES: PaletteColor[][] = [
+  [{ name: "Charcoal", hex: "#3E3E40" }, { name: "Chalk", hex: "#ECE9E2" }],
+  [{ name: "Moss", hex: "#5F6B4E" }, { name: "Bone", hex: "#EDE6DA" }],
+  [{ name: "Ink Navy", hex: "#22293A" }, { name: "Stone", hex: "#CFC6B8" }],
+  [{ name: "Rust", hex: "#9C4A2F" }, { name: "Sand", hex: "#D9C7A7" }],
+  [{ name: "Slate Blue", hex: "#5B6B7F" }, { name: "Ecru", hex: "#E8E0CF" }],
+  [{ name: "Oxblood", hex: "#8C2F37" }, { name: "Ink", hex: "#1C1C1E" }],
+];
+
+const KNOWN_COLOURS: Record<string, string> = Object.fromEntries(
+  [...EXPLORE_PALETTES.flat(), { name: "Espresso", hex: "#3B2A22" }, { name: "Dry Sage", hex: "#A7A98F" }, { name: "Salt", hex: "#F4F1EA" }, { name: "Clay", hex: "#B57A5A" }].map((c) => [c.hex.toUpperCase(), c.name]),
+);
+const toColour = (hex: string): PaletteColor => ({ hex, name: KNOWN_COLOURS[hex.toUpperCase()] ?? hex.toUpperCase() });
+
+function choosePalette(req: GenerateRequest, rng: () => number): PaletteColor[] {
+  const chosen = req.palette.map(toColour);
+  const brand = (req.brandContext?.palette ?? []).map(toColour);
+  if (req.mode === "brand") {
+    const pool = chosen.length ? chosen.filter((c) => brand.some((b) => b.hex === c.hex)) : [];
+    const base = pool.length ? pool : brand;
+    const a = pick(rng, base);
+    const b = pick(rng, base.filter((c) => c.hex !== a.hex));
+    return b ? [a, b] : [a];
+  }
+  if (req.mode === "hybrid") {
+    const explore = chosen.length ? chosen : pick(rng, EXPLORE_PALETTES);
+    return [pick(rng, brand), pick(rng, explore)];
+  }
+  if (chosen.length) {
+    const a = pick(rng, chosen);
+    const b = pick(rng, chosen.filter((c) => c.hex !== a.hex));
+    return b ? [a, b] : [a];
+  }
+  return pick(rng, EXPLORE_PALETTES);
+}
+
+function chooseSilhouette(req: GenerateRequest, index: number, rng: () => number): Silhouette {
+  if (index === 0 || req.mode === "brand") return req.silhouette;
+  // Explore drifts more as creativity rises; Hybrid drifts at half the rate.
+  const drift = req.mode === "explore" ? req.creativity : req.creativity / 2;
+  return rng() < drift ? pick(rng, SILHOUETTES) : req.silhouette;
+}
+
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+export interface SynthesisContext {
+  jobId: string;
+  now: string;
+}
+
+export function synthesizeConcepts(req: GenerateRequest, ctx: SynthesisContext): Concept[] {
+  const base = hashString(
+    JSON.stringify([req.prompt, req.category, req.silhouette, req.materials, req.palette, req.mode, req.brandContext, req.creativity, req.variationOf]),
+  );
+  return Array.from({ length: req.count }, (_, i) => {
+    const seed = (base ^ Math.imul(req.seed + i + 1, 2654435761)) >>> 0;
+    const rng = createRng(seed);
+    const silhouette = chooseSilhouette(req, i, rng);
+    const material = pick(rng, req.materials);
+    const fabric = pick(rng, FABRIC[material]);
+    const noun = pick(rng, NOUN[req.category]);
+    const detail = pick(rng, DETAIL[req.category]);
+    const palette = choosePalette(req, rng);
+    const title = `${detail} ${silhouette === req.silhouette ? "" : silhouette + " "}${noun}`.replace(/\s+/g, " ");
+    const brandNote = req.brandContext
+      ? ` Conditioned on ${req.brandContext.profileId} v${req.brandContext.version}: ${req.brandContext.styleRuleIds.length} style rules and ${req.brandContext.negativeRuleIds.length} exclusions applied as request metadata.`
+      : "";
+    const description =
+      `${cap(noun)} in ${fabric} with ${SILHOUETTE_NOTE[silhouette]}. ` +
+      `${cap(pick(rng, CLOSURE))}, ${pick(rng, FINISH)}. Palette: ${palette.map((p) => p.name.toLowerCase()).join(" and ")}.` +
+      brandNote;
+
+    return {
+      id: `${ctx.jobId}_c${i + 1}`,
+      orgId: req.orgId,
+      collectionId: null,
+      brandProfileVersion: req.brandContext?.version ?? null,
+      title,
+      category: req.category,
+      silhouette,
+      description,
+      prompt: req.prompt,
+      mode: req.mode,
+      status: "draft",
+      palette,
+      fabrics: [fabric],
+      favorite: false,
+      capability: "simulated",
+      currentVersionId: `${ctx.jobId}_c${i + 1}_v1`,
+      parentConceptId: req.variationOf,
+      jobId: ctx.jobId,
+      seed,
+      provenance: `Simulated by demo adapter · request seed ${req.seed} · variant ${i + 1}/${req.count} · schematic placeholder, no model inference`,
+      createdAt: ctx.now,
+    } satisfies Concept;
+  });
+}
