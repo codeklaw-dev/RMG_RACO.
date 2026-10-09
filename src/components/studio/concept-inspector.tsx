@@ -5,7 +5,9 @@ import { Columns2, GitBranch, Heart } from "lucide-react";
 import { GarmentPlaceholder } from "@/components/shared/garment-placeholder";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
-import { BRAND_PROFILE, ORG } from "@/lib/fixtures";
+import { ORG } from "@/lib/fixtures";
+import { useApprovedVersion, useEligibleReferenceIds } from "@/lib/store/brand-store";
+import { BrandConsistency } from "./brand-consistency";
 import { MODE_COPY, buildGenerateRequest } from "@/lib/studio/brief";
 import { useStudioSession } from "@/lib/store/studio-session";
 import { useStudioStore } from "@/lib/store/studio-store";
@@ -35,7 +37,9 @@ const Palette = ({ hexes }: { hexes: { hex: string; name: string }[] }) => (
 /** Live view of the request the Studio will send. Shown when nothing is selected. */
 export function RequestPreview() {
   const brief = useStudioSession((s) => s.brief);
-  const req = buildGenerateRequest(brief, { orgId: ORG.id, brand: BRAND_PROFILE, idempotencyKey: "preview" });
+  const approved = useApprovedVersion();
+  const eligibleReferenceIds = useEligibleReferenceIds();
+  const req = buildGenerateRequest(brief, { orgId: ORG.id, brand: approved, eligibleReferenceIds, idempotencyKey: "preview" });
   const bc = req.brandContext;
   return (
     <div className="space-y-4 p-5">
@@ -51,18 +55,39 @@ export function RequestPreview() {
         <Row label="Brand">
           {bc ? (
             <span>
-              {bc.profileId} v{bc.version} · {bc.styleRuleIds.length} rules · {bc.negativeRuleIds.length} exclusions · exploration {bc.explorationWeight}
+              Approved v{bc.version} · strictness {bc.strictness?.toFixed(2)} · {bc.styleRuleIds.length} rules · {bc.negativeRuleIds.length} exclusions
             </span>
+          ) : brief.mode === "explore" ? (
+            "None (Explore ignores Brand DNA)"
           ) : (
-            "None (unconstrained)"
+            <span className="text-oxblood">No approved profile — request will be rejected</span>
           )}
         </Row>
+        {bc && (
+          <>
+            <Row label="Silhouette">
+              {bc.preferredSilhouettes?.length ? `prefer ${bc.preferredSilhouettes.join(", ")}` : "no preference"}
+              {bc.avoidSilhouettes?.length ? ` · avoid ${bc.avoidSilhouettes.join(", ")}` : ""}
+            </Row>
+            <Row label="Materials">
+              {bc.preferredMaterials?.length ? `prefer ${bc.preferredMaterials.join(", ")}` : "no preference"}
+              {bc.avoidMaterials?.length ? ` · avoid ${bc.avoidMaterials.join(", ")}` : ""}
+            </Row>
+            <Row label="Details">
+              {bc.preferredDetails?.length ? `prefer ${bc.preferredDetails.join(", ")}` : "—"}
+              {bc.avoidDetails?.length ? ` · avoid ${bc.avoidDetails.join(", ")}` : ""}
+            </Row>
+            <Row label="Colour">{bc.paletteOnly ? "Approved palette only" : "Palette preferred"} · {bc.palette.length} colours</Row>
+            {bc.guidance?.length ? <Row label="Guidance">{bc.guidance.join(" · ")}</Row> : null}
+            <Row label="Brand refs">{bc.referenceIds?.length ?? 0} approved, available</Row>
+          </>
+        )}
         <Row label="References">{req.referenceAssetIds?.length ?? 0} local, metadata only</Row>
         <Row label="Output">{req.count} concepts · creativity {req.creativity?.toFixed(2)} · seed {req.seed}</Row>
         {req.variationOf && <Row label="Parent">{req.variationOf}</Row>}
       </dl>
       <p className="t-body text-muted-foreground">
-        Select a concept to inspect it. Brand rules are attached as request metadata only; Brand DNA intelligence arrives in Phase 3.
+        Select a concept to inspect it. Only the approved Brand DNA version conditions requests; drafts never do.
       </p>
     </div>
   );
@@ -139,12 +164,15 @@ export function ConceptInspector({ concept, onVariation }: { concept: Concept; o
         {memberOf.length > 0 && <p className="text-[12px] text-muted-foreground">In {memberOf.map((c) => c.name).join(", ")}</p>}
       </div>
 
+      <BrandConsistency concept={concept} />
+
       <dl className="divide-y divide-hairline border-y border-hairline">
         <Row label="Garment">{concept.category}</Row>
         <Row label="Silhouette">{concept.silhouette}</Row>
         <Row label="Fabric">{concept.fabrics.join(", ")}</Row>
+        {concept.details?.length ? <Row label="Details">{concept.details.join(", ")}</Row> : null}
         <Row label="Palette"><Palette hexes={concept.palette} /></Row>
-        <Row label="Brand">{concept.brandProfileVersion ? `Profile v${concept.brandProfileVersion} (metadata)` : "None"}</Row>
+        <Row label="Brand">{concept.brandProfileVersion ? `Brand DNA v${concept.brandProfileVersion}` : "None (Explore)"}</Row>
         {parent && <Row label="Parent">{parent.title}</Row>}
         <Row label="Prompt"><span className="text-charcoal">{concept.prompt}</span></Row>
         <Row label="Provenance"><span className="text-muted-foreground">{concept.provenance}</span></Row>

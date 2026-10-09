@@ -1,7 +1,10 @@
 // Brief = what the designer edits. buildGenerateRequest turns it into the
 // provider request. Phase 3 enriches buildBrandContext(); call sites stay put.
-import type { BrandContext, GenerateRequestInput } from "@/lib/services/ai-provider";
-import type { BrandProfile, Concept, DesignMode, GarmentCategory, ID, Material, Silhouette } from "@/lib/types/domain";
+import { DEFAULT_STRICTNESS, buildBrandContext } from "@/lib/brand/intelligence";
+import { materialsFromFabrics } from "@/lib/brand/vocabulary";
+import type { GenerateRequestInput } from "@/lib/services/ai-provider";
+import type { BrandProfileVersion } from "@/lib/types/brand";
+import type { Concept, DesignMode, GarmentCategory, ID, Material, Silhouette } from "@/lib/types/domain";
 
 export interface Brief {
   prompt: string;
@@ -15,12 +18,14 @@ export interface Brief {
   creativity: number;
   seed: number;
   simulateFailure: boolean;
+  /** How closely Brand/Hybrid follow the approved profile (0–1). */
+  brandStrictness: number;
   variationOf: ID | null;
   referenceIds: ID[];
 }
 
 export const MODE_DEFAULT_CREATIVITY: Record<DesignMode, number> = { explore: 0.7, brand: 0.25, hybrid: 0.5 };
-export const MODE_EXPLORATION_WEIGHT: Record<DesignMode, number> = { explore: 1, brand: 0.2, hybrid: 0.5 };
+export const strictnessFor = (mode: DesignMode) => (mode === "explore" ? 0 : DEFAULT_STRICTNESS[mode]);
 
 export const MODE_COPY: Record<DesignMode, { label: string; hint: string }> = {
   explore: { label: "Explore", hint: "Original directions, no brand constraints" },
@@ -40,28 +45,20 @@ export const DEFAULT_BRIEF: Brief = {
   creativity: MODE_DEFAULT_CREATIVITY.explore,
   seed: 1027,
   simulateFailure: false,
+  brandStrictness: 0,
   variationOf: null,
   referenceIds: [],
 };
 
-export function buildBrandContext(mode: DesignMode, brand: BrandProfile | null): BrandContext | null {
-  if (mode === "explore" || !brand) return null;
-  return {
-    profileId: brand.id,
-    version: brand.version,
-    approved: brand.approved,
-    palette: brand.palette.map((p) => p.hex),
-    styleRuleIds: brand.styleRules.map((r) => r.id),
-    negativeRuleIds: brand.negativeRules.map((r) => r.id),
-    explorationWeight: MODE_EXPLORATION_WEIGHT[mode],
-  };
-}
-
 export function buildGenerateRequest(
   brief: Brief,
-  opts: { orgId: ID; brand: BrandProfile | null; idempotencyKey: string },
+  opts: { orgId: ID; brand: BrandProfileVersion | null; eligibleReferenceIds?: ID[]; idempotencyKey: string },
 ): GenerateRequestInput {
-  const brandContext = buildBrandContext(brief.mode, opts.brand);
+  // Only the approved version is ever passed in; drafts never condition generation.
+  const brandContext = buildBrandContext(brief.mode, opts.brand, {
+    strictness: brief.brandStrictness,
+    referenceIds: opts.eligibleReferenceIds ?? [],
+  });
   return {
     orgId: opts.orgId,
     prompt: brief.prompt,
@@ -83,22 +80,14 @@ export function buildGenerateRequest(
   };
 }
 
-const MATERIAL_WORDS: [Material, RegExp][] = [
-  ["cotton", /cotton|poplin|gabardine|twill|voile/i],
-  ["wool", /wool|flannel|merino|crepe/i],
-  ["linen", /linen/i],
-  ["silk", /silk|satin/i],
-  ["denim", /denim/i],
-  ["technical", /technical|nylon|shell/i],
-];
-
 /** Pre-fill a brief from an existing concept for a variation. Source stays untouched. */
 export function briefFromConcept(c: Concept, current: Brief): Brief {
-  const materials = MATERIAL_WORDS.filter(([, re]) => c.fabrics.some((f) => re.test(f))).map(([m]) => m);
+  const materials = materialsFromFabrics(c.fabrics);
   return {
     ...current,
     prompt: c.prompt,
     mode: c.mode,
+    brandStrictness: strictnessFor(c.mode),
     category: c.category,
     silhouette: c.silhouette,
     materials: materials.length ? materials.slice(0, 3) : current.materials,

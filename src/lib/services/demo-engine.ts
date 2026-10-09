@@ -3,6 +3,7 @@
 // it combines the submitted attributes with curated vocabulary via a seeded PRNG.
 import type { Concept, GarmentCategory, Material, PaletteColor, Silhouette } from "@/lib/types/domain";
 import { SILHOUETTES } from "@/lib/types/domain";
+import { CLOSURE_DETAILS, FINISH_DETAILS } from "@/lib/brand/vocabulary";
 import type { GenerateRequest } from "./ai-provider";
 
 /** mulberry32 — small, fast, deterministic. */
@@ -47,8 +48,6 @@ const DETAIL: Record<GarmentCategory, string[]> = {
   outerwear: ["Extended-shoulder", "Dropped-yoke", "Storm-flap", "Blanket"],
 };
 
-const CLOSURE = ["concealed placket", "single covered button", "tie fastening", "asymmetric snap closure", "clean facings, no visible hardware"];
-const FINISH = ["raw-cut edges", "bound seams", "topstitched seams", "hand-felled hems", "bonded edges"];
 
 const FABRIC: Record<Material, string[]> = {
   cotton: ["cotton poplin", "cotton gabardine", "brushed cotton twill"],
@@ -99,9 +98,15 @@ function pickTwo(rng: () => number, pool: PaletteColor[]): PaletteColor[] {
  *  Explore — chosen → curated explore palette
  */
 export function choosePalette(req: GenerateRequest, rng: () => number): PaletteColor[] {
-  const chosen = req.palette.map(toColour);
-  const brand = (req.brandContext?.palette ?? []).map(toColour);
-  const fallback = () => pick(rng, EXPLORE_PALETTES);
+  const avoid = new Set(req.brandContext?.avoidColours ?? []);
+  const allowed = (c: PaletteColor) => !avoid.has(c.hex.toUpperCase());
+  const chosen = req.palette.map(toColour).filter(allowed);
+  const brand = (req.brandContext?.palette ?? []).map(toColour).filter(allowed);
+  const signature = (req.brandContext?.signaturePalette ?? []).map(toColour).filter(allowed);
+  const fallback = () => {
+    const ok = EXPLORE_PALETTES.filter((p) => p.every(allowed));
+    return pick(rng, ok.length ? ok : EXPLORE_PALETTES);
+  };
   if (req.mode === "brand") {
     const inBrand = chosen.filter((c) => brand.some((b) => b.hex === c.hex));
     const result = pickTwo(rng, inBrand.length ? inBrand : brand);
@@ -109,7 +114,8 @@ export function choosePalette(req: GenerateRequest, rng: () => number): PaletteC
   }
   if (req.mode === "hybrid") {
     const explore = chosen.length ? chosen : fallback();
-    const anchor = brand.length ? pick(rng, brand) : null;
+    const anchors = signature.length ? signature : brand;
+    const anchor = anchors.length ? pick(rng, anchors) : null;
     const accentPool = explore.filter((c) => c.hex !== anchor?.hex);
     const accent = accentPool.length ? pick(rng, accentPool) : null;
     const result = [anchor, accent].filter((c): c is PaletteColor => c !== null);
@@ -120,10 +126,46 @@ export function choosePalette(req: GenerateRequest, rng: () => number): PaletteC
 }
 
 function chooseSilhouette(req: GenerateRequest, index: number, rng: () => number): Silhouette {
-  if (index === 0 || req.mode === "brand") return req.silhouette;
-  // Explore drifts more as creativity rises; Hybrid drifts at half the rate.
-  const drift = req.mode === "explore" ? req.creativity : req.creativity / 2;
-  return rng() < drift ? pick(rng, SILHOUETTES) : req.silhouette;
+  const bc = req.brandContext;
+  const strict = bc?.strictness ?? 0;
+  const avoid = new Set(bc?.avoidSilhouettes ?? []);
+  const allowed = SILHOUETTES.filter((s) => !avoid.has(s));
+  const preferred = (bc?.preferredSilhouettes ?? []).filter((s) => !avoid.has(s));
+  let s: Silhouette = req.silhouette;
+  if (index > 0 && req.mode !== "brand") {
+    // Explore drifts with creativity; Hybrid drifts at half the rate.
+    const drift = req.mode === "explore" ? req.creativity : req.creativity / 2;
+    if (rng() < drift) s = pick(rng, SILHOUETTES);
+  }
+  // Excluded silhouettes are replaced with probability = strictness (always in Brand at 0.9+ for most seeds).
+  if (avoid.has(s) && rng() < Math.max(strict, req.mode === "brand" ? 1 : 0)) s = preferred.length ? pick(rng, preferred) : pick(rng, allowed);
+  else if (bc && preferred.length && !preferred.includes(s) && rng() < strict * 0.5) s = pick(rng, preferred);
+  return s;
+}
+
+function chooseMaterial(req: GenerateRequest, rng: () => number): Material {
+  const bc = req.brandContext;
+  if (!bc) return pick(rng, req.materials);
+  const avoid = new Set(bc.avoidMaterials);
+  const strictPass = rng() < bc.strictness;
+  const requested = strictPass ? req.materials.filter((m) => !avoid.has(m)) : req.materials;
+  const preferredRequested = requested.filter((m) => bc.preferredMaterials.includes(m));
+  if (preferredRequested.length && strictPass) return pick(rng, preferredRequested);
+  if (requested.length) return pick(rng, requested);
+  const preferred = bc.preferredMaterials.filter((m) => !avoid.has(m));
+  return preferred.length ? pick(rng, preferred) : pick(rng, req.materials);
+}
+
+function chooseDetails(req: GenerateRequest, rng: () => number): [string, string] {
+  const bc = req.brandContext;
+  const strictPass = bc ? rng() < bc.strictness : false;
+  const avoid = new Set(strictPass ? bc!.avoidDetails : []);
+  const choose = (pool: readonly string[]) => {
+    const ok = pool.filter((d) => !avoid.has(d));
+    const pref = strictPass ? ok.filter((d) => bc!.preferredDetails.includes(d)) : [];
+    return pick(rng, pref.length ? pref : ok.length ? ok : pool);
+  };
+  return [choose(CLOSURE_DETAILS), choose(FINISH_DETAILS)];
 }
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -135,24 +177,29 @@ export interface SynthesisContext {
 
 export function synthesizeConcepts(req: GenerateRequest, ctx: SynthesisContext): Concept[] {
   const base = hashString(
-    JSON.stringify([req.prompt, req.category, req.silhouette, req.materials, req.palette, req.mode, req.brandContext, req.creativity, req.variationOf]),
+    JSON.stringify([req.prompt, req.category, req.silhouette, req.materials, req.palette, req.mode, req.creativity, req.variationOf]),
   );
   return Array.from({ length: req.count }, (_, i) => {
     const seed = (base ^ Math.imul(req.seed + i + 1, 2654435761)) >>> 0;
-    const rng = createRng(seed);
-    const silhouette = chooseSilhouette(req, i, rng);
-    const material = pick(rng, req.materials);
-    const fabric = pick(rng, FABRIC[material]);
-    const noun = pick(rng, NOUN[req.category]);
-    const detail = pick(rng, DETAIL[req.category]);
-    const palette = choosePalette(req, rng);
+    // Independent stream per attribute: a brand rule that changes one attribute
+    // leaves the others untouched, so before/after comparisons stay readable.
+    const stream = (k: string) => createRng((seed ^ hashString(k)) >>> 0);
+    const silhouette = chooseSilhouette(req, i, stream("silhouette"));
+    const material = chooseMaterial(req, stream("material"));
+    const fabricRng = stream("fabric");
+    const fabric = pick(fabricRng, FABRIC[material]);
+    const nameRng = stream("name");
+    const noun = pick(nameRng, NOUN[req.category]);
+    const detail = pick(nameRng, DETAIL[req.category]);
+    const palette = choosePalette(req, stream("palette"));
+    const [closure, finish] = chooseDetails(req, stream("details"));
     const title = `${detail} ${silhouette === req.silhouette ? "" : silhouette + " "}${noun}`.replace(/\s+/g, " ");
     const brandNote = req.brandContext
-      ? ` Conditioned on ${req.brandContext.profileId} v${req.brandContext.version}: ${req.brandContext.styleRuleIds.length} style rules and ${req.brandContext.negativeRuleIds.length} exclusions applied as request metadata.`
+      ? ` Conditioned on approved Brand DNA v${req.brandContext.version} at strictness ${req.brandContext.strictness.toFixed(2)}.`
       : "";
     const description =
       `${cap(noun)} in ${fabric} with ${SILHOUETTE_NOTE[silhouette]}. ` +
-      `${cap(pick(rng, CLOSURE))}, ${pick(rng, FINISH)}. Palette: ${palette.map((p) => p.name.toLowerCase()).join(" and ")}.` +
+      `${cap(closure)}, ${finish}. Palette: ${palette.map((p) => p.name.toLowerCase()).join(" and ")}.` +
       brandNote;
 
     return {
@@ -169,6 +216,7 @@ export function synthesizeConcepts(req: GenerateRequest, ctx: SynthesisContext):
       status: "draft",
       palette,
       fabrics: [fabric],
+      details: [closure, finish],
       favorite: false,
       capability: "simulated",
       currentVersionId: `${ctx.jobId}_c${i + 1}_v1`,

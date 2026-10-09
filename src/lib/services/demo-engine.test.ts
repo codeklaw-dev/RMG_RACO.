@@ -26,7 +26,7 @@ describe("demo engine", () => {
   });
 
   it("keeps Brand mode within the brand palette and silhouette", () => {
-    const brandHexes = BRAND_PROFILE.palette.map((p) => p.hex);
+    const brandHexes = BRAND_PROFILE.content.palette.map((p) => p.hex);
     const cs = run({ mode: "brand", silhouette: "structured" });
     expect(cs.every((c) => c.palette.every((p) => brandHexes.includes(p.hex)))).toBe(true);
     expect(cs.every((c) => c.silhouette === "structured")).toBe(true);
@@ -54,14 +54,14 @@ describe("palette fallback", () => {
   });
 
   it("does not duplicate a colour in Hybrid when brand and chosen palettes overlap", () => {
-    const hex = BRAND_PROFILE.palette[0].hex;
+    const hex = BRAND_PROFILE.content.palette[0].hex;
     const p = choosePalette(req({ mode: "hybrid", palette: [hex] }, [hex]), rng);
     expect(new Set(p.map((c) => c.hex)).size).toBe(p.length);
   });
 
   it("Brand mode ignores chosen colours outside the brand palette", () => {
     const p = choosePalette(req({ mode: "brand", palette: ["#5F6B4E"] }, null), rng);
-    const brandHexes = BRAND_PROFILE.palette.map((c) => c.hex);
+    const brandHexes = BRAND_PROFILE.content.palette.map((c) => c.hex);
     expect(p.every((c) => brandHexes.includes(c.hex))).toBe(true);
   });
 });
