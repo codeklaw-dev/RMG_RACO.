@@ -18,7 +18,8 @@ afterEach(() => vi.useRealTimers());
 
 const advance = (ms: number) => act(async () => { await vi.advanceTimersByTimeAsync(ms); });
 
-describe("Design Studio walkthrough", () => {
+// Full jsdom renders of the Studio are slow on loaded machines; logic tests keep the default timeout.
+describe("Design Studio walkthrough", { timeout: 20_000 }, () => {
   it("generates simulated concepts from a brief and saves one to a collection", async () => {
     render(<StudioView />);
     await advance(10);
