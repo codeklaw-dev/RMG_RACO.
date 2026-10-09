@@ -2,6 +2,7 @@
 // All imagery is rendered as neutral placeholders (licenseStatus: "placeholder").
 import type {
   Asset,
+  Silhouette,
   BrandProfile,
   Collection,
   Concept,
@@ -79,6 +80,11 @@ export const BRAND_PROFILE: BrandProfile = {
 
 type Seed = [id: string, title: string, category: GarmentCategory, palette: PaletteColor[], fabric: string, mode: Concept["mode"], collectionId: string | null, fav?: boolean];
 
+const SEED_SILHOUETTE: Record<GarmentCategory, Silhouette> = {
+  outerwear: "structured", tailoring: "tailored", dress: "draped", shirt: "relaxed",
+  trousers: "relaxed", skirt: "fitted", knitwear: "relaxed", jacket: "structured",
+};
+
 const SEEDS: Seed[] = [
   ["cpt_01", "Extended-shoulder wrap coat", "outerwear", [C.stone, C.espresso], "Double-faced wool", "brand", "col_aw26", true],
   ["cpt_02", "Column dress, bias seam", "dress", [C.ink], "Silk crepe", "brand", "col_aw26"],
@@ -103,6 +109,8 @@ export const CONCEPTS: Concept[] = SEEDS.map(([id, title, category, palette, fab
   brandProfileVersion: mode === "explore" ? null : BRAND_PROFILE.version,
   title,
   category,
+  silhouette: SEED_SILHOUETTE[category],
+  description: `${title} in ${fabric.toLowerCase()}. Archive concept from the ${collectionId === "col_resort" ? "Resort27" : "AW26"} development cycle.`,
   prompt: `${title}. ${fabric}, ${palette.map((p) => p.name.toLowerCase()).join(" and ")} palette, studio editorial lighting, no logos.`,
   mode,
   status: i % 5 === 0 ? "approved" : i % 3 === 0 ? "shortlisted" : "draft",
@@ -111,6 +119,10 @@ export const CONCEPTS: Concept[] = SEEDS.map(([id, title, category, palette, fab
   favorite: Boolean(fav),
   capability: "simulated",
   currentVersionId: `${id}_v1`,
+  parentConceptId: null,
+  jobId: null,
+  seed: null,
+  provenance: "Seed fixture · schematic placeholder · no model involved",
   createdAt: new Date(Date.UTC(2026, 9, 8 - (i % 7), 9 + i)).toISOString(),
 }));
 
@@ -138,8 +150,8 @@ export const COLLECTIONS: Collection[] = [
 ];
 
 export const JOBS: GenerationJob[] = [
-  { id: "job_301", orgId: ORG.id, type: "generate", provider: "demo", status: "succeeded", progress: 1, label: "4 outerwear concepts · Brand v3", errorCode: null, costEstimate: null, resultConceptIds: ["cpt_01", "cpt_12"], createdAt: "2026-10-09T09:12:00Z" },
-  { id: "job_302", orgId: ORG.id, type: "edit", provider: "demo", status: "running", progress: 0.62, label: "Balloon sleeve refinement", errorCode: null, costEstimate: null, resultConceptIds: [], createdAt: "2026-10-09T09:40:00Z" },
-  { id: "job_303", orgId: ORG.id, type: "analyze_brand", provider: "demo", status: "queued", progress: 0, label: "Analyse 6 new references", errorCode: null, costEstimate: null, resultConceptIds: [], createdAt: "2026-10-09T09:41:00Z" },
-  { id: "job_299", orgId: ORG.id, type: "generate", provider: "demo", status: "failed", progress: 0.3, label: "Knitwear exploration", errorCode: "provider_unavailable", costEstimate: null, resultConceptIds: [], createdAt: "2026-10-08T17:02:00Z" },
+  { id: "job_301", orgId: ORG.id, type: "generate", provider: "demo", status: "succeeded", progress: 1, stage: null, attempt: 1, label: "4 outerwear concepts · Brand v3", errorCode: null, costEstimate: null, resultConceptIds: ["cpt_01", "cpt_12"], createdAt: "2026-10-09T09:12:00Z" },
+  { id: "job_302", orgId: ORG.id, type: "edit", provider: "demo", status: "running", progress: 0.62, stage: null, attempt: 1, label: "Balloon sleeve refinement", errorCode: null, costEstimate: null, resultConceptIds: [], createdAt: "2026-10-09T09:40:00Z" },
+  { id: "job_303", orgId: ORG.id, type: "analyze_brand", provider: "demo", status: "queued", progress: 0, stage: null, attempt: 1, label: "Analyse 6 new references", errorCode: null, costEstimate: null, resultConceptIds: [], createdAt: "2026-10-09T09:41:00Z" },
+  { id: "job_299", orgId: ORG.id, type: "generate", provider: "demo", status: "failed", progress: 0.3, stage: null, attempt: 1, label: "Knitwear exploration", errorCode: "provider_unavailable", costEstimate: null, resultConceptIds: [], createdAt: "2026-10-08T17:02:00Z" },
 ];

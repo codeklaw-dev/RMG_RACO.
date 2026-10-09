@@ -9,17 +9,40 @@ import { StatusBadge } from "./status-badge";
 
 const MODE_LABEL = { explore: "Explore", brand: "Brand", hybrid: "Hybrid" } as const;
 
-export function ConceptCard({ concept, aspect = "aspect-[3/4]" }: { concept: Concept; aspect?: string }) {
+export function ConceptCard({
+  concept,
+  aspect = "aspect-[3/4]",
+  selected,
+  onSelect,
+}: {
+  concept: Concept;
+  aspect?: string;
+  /** When provided the card selects instead of navigating. */
+  onSelect?: (id: string) => void;
+  selected?: boolean;
+}) {
   const toggleFavorite = useStudioStore((s) => s.toggleFavorite);
+  const preview = (
+    <GarmentPlaceholder
+      category={concept.category}
+      palette={concept.palette}
+      silhouette={concept.silhouette}
+      seed={concept.seed}
+      className={cn(aspect, "w-full transition-colors duration-300 group-hover:bg-[#e9e4dc]")}
+    />
+  );
+  const focus = "block w-full outline-none focus-visible:ring-2 focus-visible:ring-ring";
   return (
-    <article className="group relative">
-      <Link href={`/editor?concept=${concept.id}`} className="block outline-none focus-visible:ring-2 focus-visible:ring-ring">
-        <GarmentPlaceholder
-          category={concept.category}
-          palette={concept.palette}
-          className={cn(aspect, "w-full transition-colors duration-300 group-hover:bg-[#e9e4dc]")}
-        />
-      </Link>
+    <article className={cn("group relative", selected && "outline outline-1 outline-offset-4 outline-ink")}>
+      {onSelect ? (
+        <button type="button" onClick={() => onSelect(concept.id)} aria-pressed={selected} aria-label={`Select ${concept.title}`} className={focus}>
+          {preview}
+        </button>
+      ) : (
+        <Link href={`/editor?concept=${concept.id}`} className={focus}>
+          {preview}
+        </Link>
+      )}
       <div className="absolute left-2 top-2 flex gap-1">
         <StatusBadge state={concept.capability} />
       </div>

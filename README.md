@@ -5,7 +5,7 @@ Interactive proof-of-concept for an AI-assisted fashion design studio. Frontend 
 ```bash
 npm install
 npm run dev      # http://localhost:3000
-npm run lint && npx tsc --noEmit && npm run build
+npm run lint && npm run typecheck && npm test && npm run build
 ```
 
 Optional: `NEXT_PUBLIC_FLAG_TRY_ON=false` hides Virtual Try-On.

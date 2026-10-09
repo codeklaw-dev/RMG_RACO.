@@ -1,16 +1,20 @@
 "use client";
+import { useShallow } from "zustand/react/shallow";
 import { ConceptCard } from "@/components/shared/concept-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { Reveal } from "@/components/shared/reveal";
 import { useStudioStore } from "@/lib/store/studio-store";
 import type { Collection } from "@/lib/types/domain";
 
-export function CollectionBoard({ collection }: { collection: Collection }) {
-  const looks = useStudioStore((s) => s.concepts.filter((c) => collection.conceptIds.includes(c.id)));
+export function CollectionBoard({ collection: initial }: { collection: Collection }) {
+  const collection = useStudioStore((s) => s.collections.find((c) => c.id === initial.id)) ?? initial;
+  const looks = useStudioStore(
+    useShallow((s) => collection.conceptIds.map((id) => s.concepts.find((c) => c.id === id)).filter((c) => c !== undefined)),
+  );
   return (
     <div className="space-y-10">
       <PageHeader
-        eyebrow={`${collection.season} · ${collection.status.replace("_", " ")}`}
+        eyebrow={`${collection.season} · ${collection.status.replace("_", " ")} · ${looks.length} looks`}
         title={collection.name}
         description={collection.description}
       />
