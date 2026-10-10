@@ -1,0 +1,152 @@
+// Phase 6 Track B — secure application foundation.
+// Every tenant-owned row carries orgId; all queries are scoped by it server-side.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  owner
+  admin
+  designer
+  viewer
+}
+
+enum AssetKind {
+  reference
+  output
+}
+
+enum AssetStatus {
+  pending
+  ready
+  rejected
+  deleted
+}
+
+enum JobStatus {
+  queued
+  running
+  succeeded
+  failed
+  canceled
+}
+
+model Organization {
+  id                     String   @id @default(cuid())
+  name                   String
+  monthlyBudgetUsd       Decimal  @default(25) @db.Decimal(10, 2)
+  referenceRetentionDays Int      @default(30)
+  outputRetentionDays    Int      @default(90)
+  createdAt              DateTime @default(now())
+
+  memberships Membership[]
+  assets      Asset[]
+  jobs        GenerationJob[]
+  audit       AuditEvent[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  memberships Membership[]
+  sessions    Session[]
+}
+
+model Membership {
+  id        String       @id @default(cuid())
+  userId    String
+  orgId     String
+  role      Role
+  createdAt DateTime     @default(now())
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, orgId])
+}
+
+/// Opaque session: the cookie holds a random token; only its keyed hash is stored.
+model Session {
+  id         String   @id @default(cuid())
+  tokenHash  String   @unique
+  userId     String
+  orgId      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  lastUsedAt DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+}
+
+model Asset {
+  id              String      @id @default(cuid())
+  orgId           String
+  createdById     String
+  kind            AssetKind
+  status          AssetStatus @default(pending)
+  /// Object key: org/{orgId}/{kind}s/{id}. Never derived from user input.
+  storageKey      String      @unique
+  fileName        String
+  contentType     String
+  sizeBytes       Int
+  rightsConfirmed Boolean     @default(false)
+  category        String?
+  rejectReason    String?
+  expiresAt       DateTime
+  createdAt       DateTime    @default(now())
+  deletedAt       DateTime?
+  org             Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, kind, status])
+  @@index([expiresAt, status])
+}
+
+model GenerationJob {
+  id               String     @id @default(cuid())
+  orgId            String
+  userId           String
+  status           JobStatus  @default(queued)
+  provider         String
+  providerJobId    String?
+  request          Json
+  imageCount       Int
+  estimatedCostUsd Decimal    @db.Decimal(10, 4)
+  actualCostUsd    Decimal?   @db.Decimal(10, 4)
+  errorCode        String?
+  attempts         Int        @default(1)
+  idempotencyKey   String
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  finishedAt       DateTime?
+  org              Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, idempotencyKey])
+  @@index([userId, createdAt])
+  @@index([orgId, createdAt])
+}
+
+model AuditEvent {
+  id           String        @id @default(cuid())
+  orgId        String?
+  actorId      String?
+  action       String
+  resourceType String?
+  resourceId   String?
+  ip           String?
+  metadata     Json?
+  createdAt    DateTime      @default(now())
+  org          Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, createdAt])
+  @@index([action, createdAt])
+}

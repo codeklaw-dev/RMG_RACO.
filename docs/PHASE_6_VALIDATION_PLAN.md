@@ -1,6 +1,6 @@
 # Phase 6 — Decision Record & Validation Plan
 
-*Status: awaiting founder approval to start. No paid resources provisioned, nothing purchased, no inference deployed. Prepared 10 Oct 2026. Builds on [PHASE_6_AI_ARCHITECTURE_PROPOSAL.md](PHASE_6_AI_ARCHITECTURE_PROPOSAL.md).*
+*Status (10 Oct 2026): founder direction is to work within free tiers and run **no generations** during development. Generation credit is reserved for team and client tests. Track A is built and tested offline (`experiments/flux2-klein-eval/`) and Track B 6B-1 is built locally at $0 ([SECURE_FOUNDATION.md](SECURE_FOUNDATION.md)). No paid resources provisioned, nothing purchased, no inference deployed. Builds on [PHASE_6_AI_ARCHITECTURE_PROPOSAL.md](PHASE_6_AI_ARCHITECTURE_PROPOSAL.md).*
 
 Legend: **[V]** verified from an authoritative/vendor source today · **[S]** secondary source · **[E]** engineering estimate, *to be replaced by Track A measurements*.
 
@@ -128,6 +128,8 @@ Assumed container: 4 physical cores + 32 GiB RAM (≈ $0.000123/s CPU+RAM).
 | Memory profiling | within the runs above | — |
 | Iteration and debugging allowance | ×3 | — |
 | **Total** | ~140 images, ~2.5–3 GPU-hours mixed | **≈ $4–7**; proposed hard cap **$15** |
+
+> **Update (built):** with the implemented sets (smoke 1, quality 40, adherence 20, references 4, latency 30, cold start 3, reproducibility 4) and deliberately pessimistic timings (10 s per image on L4, 2 min per cold start + 60 s idle), the runner's budget planner totals about **$1.25 for the whole benchmark**. The default cap per command is $5, and the Modal Starter credit is $30/month, leaving most of it for team and client testing. Test references are **CC0** images (Openverse, including Smithsonian Open Access), not generated.
 
 The expected out-of-pocket cost is **$0** if the Starter credits apply.
 
