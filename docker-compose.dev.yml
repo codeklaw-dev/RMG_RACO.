@@ -1,0 +1,27 @@
+# Local-only services for Phase 6 Track B development. $0, nothing deployed.
+# Start:  docker compose -f docker-compose.dev.yml up -d
+# Postgres on 127.0.0.1:54329 · S3-compatible SeaweedFS on 127.0.0.1:8333
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: raco
+      POSTGRES_PASSWORD: raco_local_dev
+      POSTGRES_DB: raco
+    ports: ["127.0.0.1:54329:5432"]
+    volumes: [raco_pg:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U raco"]
+      interval: 2s
+      retries: 30
+  s3:
+    # MinIO no longer publishes public images; SeaweedFS (Apache 2.0) provides the S3 API locally.
+    image: chrislusf/seaweedfs:4.48
+    command: server -dir=/data -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3.json -ip.bind=0.0.0.0
+    ports: ["127.0.0.1:8333:8333"]
+    volumes:
+      - raco_s3:/data
+      - ./dev/s3.json:/etc/seaweedfs/s3.json:ro
+volumes:
+  raco_pg: {}
+  raco_s3: {}

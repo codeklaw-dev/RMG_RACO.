@@ -1,0 +1,20 @@
+{
+  "note": "Fictional Serein Atelier briefs for model evaluation. No client data.",
+  "briefs": [
+    {"id": "blazer", "garment": "single-breasted tailored blazer, hip length", "silhouette": "structured, extended shoulder",
+     "material": "lightweight wool", "colour": "stone", "details": ["notched lapel", "two buttons", "flap pockets", "straight hem"],
+     "plain": "A stone wool single-breasted blazer with extended shoulders, notched lapels and flap pockets"},
+    {"id": "column_dress", "garment": "bias-cut column dress, mid-calf length", "silhouette": "fluid column",
+     "material": "silk crepe", "colour": "ink black", "details": ["bateau neckline", "no waist seam", "fluid drape", "mid-calf hem"],
+     "plain": "An ink silk crepe bias-cut column dress to mid-calf with a bateau neckline"},
+    {"id": "wrap_coat", "garment": "cocoon wrap coat, below the knee", "silhouette": "cocoon, dropped shoulder",
+     "material": "double-faced wool", "colour": "espresso brown", "details": ["shawl collar", "self-tie belt", "concealed closure", "no visible hardware"],
+     "plain": "An espresso double-faced wool cocoon wrap coat with a shawl collar and tie belt"},
+    {"id": "rib_knit", "garment": "funnel-neck sweater", "silhouette": "relaxed",
+     "material": "merino rib knit", "colour": "oxblood red", "details": ["visible rib texture", "funnel neck", "fully-fashioned shoulder seams", "ribbed cuffs and hem"],
+     "plain": "An oxblood merino rib funnel-neck sweater, relaxed fit"},
+    {"id": "wide_trouser", "garment": "high-rise wide-leg trouser, full length", "silhouette": "wide leg",
+     "material": "wool flannel", "colour": "charcoal grey", "details": ["front double pleats", "pressed crease", "side-seam pockets", "waistband with concealed closure"],
+     "plain": "Charcoal wool flannel high-rise wide-leg trousers with double pleats and a pressed crease"}
+  ]
+}

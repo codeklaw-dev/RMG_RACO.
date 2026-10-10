@@ -1,0 +1,9 @@
+{
+  "identities": [
+    {
+      "name": "raco_local",
+      "credentials": [{ "accessKey": "raco_local", "secretKey": "raco_local_secret" }],
+      "actions": ["Admin", "Read", "Write", "List", "Tagging"]
+    }
+  ]
+}

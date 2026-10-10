@@ -6,18 +6,18 @@ import { afterEach, vi } from "vitest";
 afterEach(() => cleanup());
 
 // jsdom lacks matchMedia (used by GSAP matchMedia and layout hooks).
-if (!window.matchMedia) {
+if (typeof window !== "undefined" && !window.matchMedia) {
   window.matchMedia = vi.fn().mockImplementation((query: string) => ({
     matches: false, media: query, onchange: null,
     addEventListener: vi.fn(), removeEventListener: vi.fn(), addListener: vi.fn(), removeListener: vi.fn(), dispatchEvent: vi.fn(),
   }));
 }
-if (!URL.createObjectURL) URL.createObjectURL = () => "blob:test";
-if (!URL.revokeObjectURL) URL.revokeObjectURL = () => {};
+if (typeof window !== "undefined" && !URL.createObjectURL) URL.createObjectURL = () => "blob:test";
+if (typeof window !== "undefined" && !URL.revokeObjectURL) URL.revokeObjectURL = () => {};
 
 // Node ≥22 exposes an experimental global localStorage that shadows jsdom's
 // and is undefined without --localstorage-file. Provide an in-memory Storage.
-if (typeof globalThis.localStorage?.clear !== "function") {
+if (typeof window !== "undefined" && typeof globalThis.localStorage?.clear !== "function") {
   const data = new Map<string, string>();
   const storage: Storage = {
     get length() { return data.size; },
