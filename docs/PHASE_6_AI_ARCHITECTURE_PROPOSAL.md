@@ -1,6 +1,6 @@
 # Phase 6 — Real AI Garment Generation: Architecture Proposal
 
-*Status: proposal for founder approval. No implementation code, dependencies or infrastructure have been added. Prepared 10 Oct 2026 against `main` @ `91ba2be` (Phases 1–5 merged).*
+*Status: **approved in principle** (10 Oct 2026), subject to technical validation and licensing review. Provisional founder decisions, the two-track split (A: isolated model evaluation · B: secure foundation), reconfirmed licensing, the **corrected cost model** and the first milestones are in [PHASE_6_VALIDATION_PLAN.md](PHASE_6_VALIDATION_PLAN.md), which supersedes this document where they differ (notably: backend = Next.js API + Postgres + Prisma + private S3 + Python workers; GPU baseline L4; costs include cold starts, idle time and CPU/RAM). No implementation code, dependencies or infrastructure have been added. Originally prepared against `main` @ `91ba2be`.*
 
 **Legend for every number in this document**
 - **[V]** verified from a primary/vendor source on the date above (link given).
@@ -192,7 +192,9 @@ We will not claim the model understands these categories. The UI states that cat
 | **D. Serverless GPU (Modal; RunPod Serverless as alternative)** | **✓ Recommended** | **$0 when idle** (scale to zero) | Per-second billing: Modal L40S $0.000542/s ≈ $1.95/h [V]; A100 80 GB $0.000944/s [S]; RunPod flex 48 GB ~$0.00053/s, A100 ~$0.00076/s [S] |
 | E. Hosted inference API (fal, BFL) | Fallback | $0 | klein 4B from ~$0.014/image, Qwen-Image ~$0.02/MP, FLUX.2 [pro] from $0.03 [V/S]; data terms limit use (§1) |
 
-**Cost estimates** (per 1 MP image; **all [E] until 6C measures them**)
+> **Superseded:** the table below counted image time only. See the corrected model (cold starts, idle tail, CPU/RAM, L4 baseline) in [PHASE_6_VALIDATION_PLAN.md §5](PHASE_6_VALIDATION_PLAN.md#5-corrected-cost-model).
+
+**Original cost estimates** (per 1 MP image; **all [E]**)
 
 | | klein 4B on Modal L40S | Qwen-Image on Modal A100 80 GB | fal hosted klein 4B |
 |---|---|---|---|

@@ -29,3 +29,6 @@ Cross-cutting: PostgreSQL + Prisma (pgvector for references) · private object s
 
 ## Pilot plan
 1. Benchmark 2–3 image models on 20 blind briefs. 2. Measure latency and cost per accepted concept. 3. Collect authorised references with rights metadata. 4. Agree an evaluation rubric (originality, brand fit, edit control, time saved). 5. Legal review of model licences, IP and data retention. 6. Stand up auth/RBAC, Postgres, private storage, audit logging, monitoring.
+
+## Phase 6 decision record
+Provisional founder decisions (10 Oct 2026): FLUX.2 [klein] 4B on Modal (portable to RunPod) · Next.js API + PostgreSQL + Prisma + private S3-compatible storage + Python inference workers · hosted fallback disabled for client assets · ghost-mannequin default · $25/org/month, 20 requests/user/hour, global spend limit · retention 30 days (references) / 90 days (outputs) · legal review before client data. Delivery is split into Track A (isolated model evaluation) and Track B (secure foundation). See [PHASE_6_VALIDATION_PLAN.md](PHASE_6_VALIDATION_PLAN.md).
