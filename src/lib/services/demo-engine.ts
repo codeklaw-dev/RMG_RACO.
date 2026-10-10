@@ -58,7 +58,7 @@ const FABRIC: Record<Material, string[]> = {
   technical: ["bonded technical shell", "recycled nylon taffeta", "matte technical twill"],
 };
 
-const SILHOUETTE_NOTE: Record<Silhouette, string> = {
+export const SILHOUETTE_NOTE: Record<Silhouette, string> = {
   tailored: "a precise tailored line",
   oversized: "generous oversized proportions",
   relaxed: "an easy, relaxed fall",

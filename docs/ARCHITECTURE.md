@@ -76,6 +76,21 @@ app/present/[id]           presentation route outside the app shell
 ```
 Store additions (`raco-studio` v5): `versions`, `annotations`, `reviews`, `exceptions`; collections gain `creativeDirection`, `notes`, `groups`, `lookMeta`. Mutations validate concept/version/collection existence and organisation scope. Concepts mirror their head version's snapshot for fast list rendering. See [DESIGN_EDITOR.md](DESIGN_EDITOR.md) and [COLLECTION_WORKFLOW.md](COLLECTION_WORKFLOW.md).
 
+## Try-on, handoff, demo (Phase 5)
+```
+lib/types/handoff.ts          FitModel, TryOnPreview, TechBrief, Measurement, BomLine, TechReview
+lib/fixtures/fit-models.ts    original schematic avatars (rights + provenance)
+lib/fixtures/demo.ts          curated dataset: cpt_01 v2, annotations, reviews, brief, 3 previews
+lib/handoff/technical.ts      prefill, units, validation, review machine, missing info, BriefDocument
+lib/handoff/pdf.ts            jsPDF renderer (lazy import), SVG → PNG for drawings
+lib/store/handoff-store.ts    raco-handoff: previews + briefs (metadata only)
+lib/store/demo-store.ts       guided demo progress (sessionStorage)
+lib/demo/scenes.ts, reset.ts  five scenes (flag-aware), reset with work summary
+lib/config/capabilities.ts    capability registry → Pilot Readiness
+components/try-on, technical, demo, pilot
+```
+Try-on reuses the shared job state machine via `AIProvider.virtualTryOn` + `getTryOnResult`. Feature flags: `NEXT_PUBLIC_FLAG_TRY_ON`, `NEXT_PUBLIC_FLAG_TECHNICAL`, `NEXT_PUBLIC_FLAG_DEMO` hide nav, demo scenes and routes (404). See [PILOT_ARCHITECTURE.md](PILOT_ARCHITECTURE.md) for the production design.
+
 ## Persisted demo state
 `raco-brand` (brand-store) validates on load and falls back to fixtures. `studio-store` persists under `raco-studio` with an explicit `version`. `migrateState()` upgrades legacy keys (`raco-studio-v1`, `raco-studio-v2`), fills fields added since, drops unrepairable records, and re-validates same-version payloads so corrupt storage falls back to fixtures instead of breaking the UI. v5 also maps legacy `shortlisted` → `in_review`, backfills version numbers, keeps edits to fixture concepts, and drops annotations/exceptions whose version no longer exists. Bump `STORE_VERSION` and extend `migrateState()` whenever the persisted shape changes.
 

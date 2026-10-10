@@ -8,6 +8,7 @@ import { JobRow } from "@/components/shared/job-row";
 import { PageHeader } from "@/components/shared/page-header";
 import { Reveal } from "@/components/shared/reveal";
 import { Section } from "@/components/shared/section";
+import { StartDemoButton } from "@/components/demo/demo-controls";
 import { Button } from "@/components/ui/button";
 import { CURRENT_USER, ORG } from "@/lib/fixtures";
 import { completeness } from "@/lib/brand/intelligence";
@@ -57,6 +58,7 @@ export function OverviewView() {
         description="Six AW26 looks are waiting on sign-off. Resort27 needs two more outerwear directions before the line review."
         actions={
           <>
+            <StartDemoButton size="default" />
             <Button variant="outline" render={<Link href="/collections/col_aw26" />} nativeButton={false}>
               Review AW26
             </Button>

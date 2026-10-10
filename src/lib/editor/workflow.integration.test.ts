@@ -47,7 +47,7 @@ describe("acceptance scenario: designing a Serein Atelier collection", () => {
 
     // 8. Compare original vs revised: original untouched, annotation still on v1.
     expect(orig).toEqual(v1);
-    expect(st().annotations[0].versionId).toBe(v1.id);
+    expect(st().annotations.find((a) => a.conceptId === concept.id)!.versionId).toBe(v1.id);
 
     // 9. Brand alignment recalculated for the revision.
     const before = evaluateConcept({ ...concept, ...orig.snapshot }, BRAND_PROFILE.content);

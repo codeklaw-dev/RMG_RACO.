@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { DemoBar } from "@/components/demo/demo-bar";
 import { AppSidebar } from "@/components/shell/app-sidebar";
 import { StoreHydrator } from "@/components/shell/store-hydrator";
 import { Topbar } from "@/components/shell/topbar";
@@ -16,6 +17,7 @@ export default function StudioLayout({ children }: { children: ReactNode }) {
         <main id="main" className="mx-auto w-full max-w-[1440px] flex-1 px-4 py-8 md:px-8 md:py-10">
           {children}
         </main>
+        <DemoBar />
       </div>
     </div>
   );

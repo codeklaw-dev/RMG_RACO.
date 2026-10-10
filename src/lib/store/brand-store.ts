@@ -32,7 +32,7 @@ interface BrandState {
   reset: () => void;
 }
 
-const initial = () => ({ versions: BRAND_VERSIONS, references: BRAND_REFERENCES, changes: [] as BrandChange[] });
+export const curatedBrandState = () => ({ versions: BRAND_VERSIONS, references: BRAND_REFERENCES, changes: [] as BrandChange[] });
 let seq = 0;
 const change = (version: number, action: BrandChange["action"], summary: string): BrandChange => ({
   id: `chg_${Date.now().toString(36)}_${++seq}`,
@@ -58,7 +58,7 @@ export const useBrandStore = create<BrandState>()(
       };
       const find = (vs: BrandProfileVersion[], status: BrandProfileVersion["status"]) => vs.find((v) => v.status === status)!;
       return {
-        ...initial(),
+        ...curatedBrandState(),
         edit: (summary, fn) =>
           run((vs) => {
             const { versions, draft, created } = editDraft(vs, fn);
@@ -83,7 +83,7 @@ export const useBrandStore = create<BrandState>()(
         addReference: (r) => set((s) => ({ references: [r, ...s.references] })),
         updateReference: (id, patch) => set((s) => ({ references: s.references.map((r) => (r.id === id ? { ...r, ...patch } : r)) })),
         removeReference: (id) => set((s) => ({ references: s.references.filter((r) => r.id !== id) })),
-        reset: () => set(initial()),
+        reset: () => set(curatedBrandState()),
       };
     },
     {

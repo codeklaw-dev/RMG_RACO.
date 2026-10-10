@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { NAV } from "@/lib/config/nav";
 import { ORG } from "@/lib/fixtures";
+import { StartDemoButton } from "@/components/demo/demo-controls";
 import { BrandMark } from "./brand-mark";
 import { NavList } from "./nav-list";
 
@@ -50,6 +51,7 @@ export function Topbar() {
         <span className="size-1.5 rounded-full bg-oxblood" aria-hidden />
         Demo environment · no live models
       </span>
+      <span className="hidden sm:inline-flex"><StartDemoButton /></span>
       <Button size="sm" render={<Link href="/studio" />} nativeButton={false}>
         <Plus /> New concept
       </Button>

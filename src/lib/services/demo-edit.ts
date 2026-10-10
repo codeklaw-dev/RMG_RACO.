@@ -5,7 +5,7 @@
 import { BRAND_PROFILE } from "@/lib/fixtures";
 import { CONSTRUCTION_DETAILS, CLOSURE_DETAILS, FINISH_DETAILS, materialsFromFabrics } from "@/lib/brand/vocabulary";
 import { MATERIALS, SILHOUETTES, type ConceptSnapshot, type Material, type PaletteColor, type Region, type VersionChange } from "@/lib/types/domain";
-import { EXPLORE_PALETTES, createRng, hashString } from "./demo-engine";
+import { EXPLORE_PALETTES, SILHOUETTE_NOTE, createRng, hashString } from "./demo-engine";
 
 const BASIC_COLOURS: PaletteColor[] = [
   { name: "Black", hex: "#141414" },
@@ -146,7 +146,12 @@ export function applyEdit(base: ConceptSnapshot, changes: VersionChange[], instr
   // Seed shifts so the schematic's construction marks visibly differ per version.
   next.seed = createRng(hashString(instruction) ^ (base.seed ?? 0))() * 1e6 | 0;
   const summary = changes.map((c) => `${c.attribute} ${c.from} → ${c.to}`).join("; ");
-  next.description = `${base.description.replace(/ Revised:.*$/, "")} Revised: ${summary}.`;
+  // Keep the descriptive sentence consistent with the new attributes, then note the revision.
+  let body = base.description.replace(/ Revised:.*$/, "");
+  if (base.fabrics[0] && next.fabrics[0] && base.fabrics[0] !== next.fabrics[0]) body = body.split(base.fabrics[0]).join(next.fabrics[0]);
+  if (base.silhouette !== next.silhouette) body = body.replace(SILHOUETTE_NOTE[base.silhouette], SILHOUETTE_NOTE[next.silhouette]);
+  if (changes.some((c) => c.attribute === "colour" || c.attribute === "accent")) body = body.replace(/Palette: [^.]*\./, `Palette: ${next.palette.map((p) => p.name.toLowerCase()).join(" and ")}.`);
+  next.description = `${body} Revised: ${summary}.`;
   if (changes.some((c) => c.attribute === "silhouette")) {
     next.title = `${base.title.replace(/ — .*$/, "")} — ${next.silhouette}`;
   }

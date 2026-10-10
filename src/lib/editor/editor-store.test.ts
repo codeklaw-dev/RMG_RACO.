@@ -70,13 +70,13 @@ describe("annotations", () => {
   it("are tied to a version, clamped, and persisted", () => {
     const res = st().addAnnotation({ conceptId: C.id, versionId: own()[0].id, x: 1.4, y: 0.25, text: " Reduce shoulder width ", category: "fit", view: "front" });
     expect(res.ok).toBe(true);
-    const a = st().annotations[0];
+    const a = st().annotations.find((x) => res.ok && x.id === res.value)!;
     expect(a).toMatchObject({ x: 1, y: 0.25, text: "Reduce shoulder width", resolved: false, orgId: C.orgId });
     st().updateAnnotation(a.id, { resolved: true, text: "Done" });
-    const saved = JSON.parse(localStorage.getItem("raco-studio")!).state.annotations;
+    const saved = JSON.parse(localStorage.getItem("raco-studio")!).state.annotations.filter((x: { id: string }) => x.id === a.id);
     expect(saved[0]).toMatchObject({ resolved: true, text: "Done", versionId: own()[0].id });
     st().deleteAnnotation(a.id);
-    expect(st().annotations).toEqual([]);
+    expect(st().annotations.some((x) => x.id === a.id)).toBe(false);
   });
   it("reject empty comments and unknown versions", () => {
     expect(st().addAnnotation({ conceptId: C.id, versionId: own()[0].id, x: 0.5, y: 0.5, text: " ", category: "fit", view: "front" }).ok).toBe(false);
@@ -114,7 +114,7 @@ describe("review workflow", () => {
     const res = st().review(C.id, "reopen");
     expect(res.ok && res.value).toBeTruthy();
     expect(own().at(-1)).toMatchObject({ operation: "reopen", number: 2 });
-    expect(st().reviews.map((r) => r.to)).toEqual(["draft", "rejected", "in_review"]);
+    expect(st().reviews.filter((r) => r.conceptId === C.id).map((r) => r.to)).toEqual(["draft", "rejected", "in_review"]);
     expect(st().review(C.id, "approve").ok).toBe(false);
   });
 });
@@ -157,7 +157,7 @@ describe("organisation isolation", () => {
   it("stamps annotations with the concept's organisation", () => {
     st().addConcepts([{ ...C, id: "foreign_2", orgId: "org_other", currentVersionId: "foreign_2_v1" }]);
     st().addAnnotation({ conceptId: "foreign_2", versionId: "foreign_2_v1", x: 0.1, y: 0.1, text: "x", category: "fit", view: "front" });
-    expect(st().annotations[0].orgId).toBe("org_other");
+    expect(st().annotations.find((a) => a.conceptId === "foreign_2")!.orgId).toBe("org_other");
   });
 });
 
@@ -170,9 +170,16 @@ describe("persistence migration to v5", () => {
       annotations: [{ id: "a1", versionId: "missing" }],
     });
     const c = migrated.concepts.find((x) => x.id === "cpt_01")!;
-    expect(c).toMatchObject({ title: "Renamed wrap coat", status: "in_review", favorite: true });
-    expect(migrated.versions.filter((v) => v.conceptId === "cpt_01")).toHaveLength(1);
+    expect(c).toMatchObject({ title: "Renamed wrap coat", status: "in_review", favorite: true, currentVersionId: "cpt_01_v1" });
+    // Curated v2 is appended (append-only) so demo briefs/previews resolve; the head stays the user's.
+    expect(migrated.versions.filter((v) => v.conceptId === "cpt_01").map((v) => v.id)).toEqual(["cpt_01_v1", "cpt_01_v2"]);
     expect(migrated.collections.find((x) => x.id === "col_aw26")!.conceptIds).toEqual(["cpt_02", "cpt_01"]);
+    expect(migrated.annotations.map((a) => a.id)).toEqual(["ann_demo_1", "ann_demo_2"]); // orphan "a1" dropped
+    expect(migrated.reviews.map((r) => r.id)).toEqual(["rev_demo_2", "rev_demo_1"]);
+  });
+
+  it("doesn't resurrect curated records a user removed after they were seeded", () => {
+    const migrated = migrateState({ concepts: CONCEPTS, annotations: [], reviews: [], demoSeeded: true });
     expect(migrated.annotations).toEqual([]);
     expect(migrated.reviews).toEqual([]);
   });

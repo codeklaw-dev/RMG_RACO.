@@ -1,5 +1,10 @@
 "use client";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Ruler, Shirt } from "lucide-react";
+import { FLAGS } from "@/lib/config/flags";
+import { useHandoffStore } from "@/lib/store/handoff-store";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { availableActions, REVIEW_LABEL, type ReviewAction } from "@/lib/editor/review";
@@ -26,6 +31,29 @@ export function ConceptReviewControls({ concept, compact }: { concept: Concept; 
           <Button key={a} size={compact ? "xs" : "sm"} variant={a === "approve" ? "default" : "outline"} className="rounded-none" onClick={() => act(a)}>{ACTION_LABEL[a]}</Button>
         ))}
       </div>
+    </div>
+  );
+}
+
+function NextSteps({ concept }: { concept: Concept }) {
+  const router = useRouter();
+  const createBrief = useHandoffStore((s) => s.createBrief);
+  return (
+    <div className="space-y-2 border-t border-hairline pt-4">
+      <p className="t-meta">Next steps</p>
+      {FLAGS.virtualTryOn && (
+        <Button variant="outline" size="sm" className="w-full rounded-none" render={<Link href={`/try-on?concept=${encodeURIComponent(concept.id)}&version=${encodeURIComponent(concept.currentVersionId)}`} />} nativeButton={false}>
+          <Shirt /> Conceptual try-on
+        </Button>
+      )}
+      {FLAGS.technicalDevelopment && (
+        <Button variant="outline" size="sm" className="w-full rounded-none" onClick={() => {
+          const r = createBrief(concept.id, concept.currentVersionId, concept.orgId);
+          if (r.ok) router.push(`/technical?brief=${encodeURIComponent(r.value)}`); else toast.error(r.error);
+        }}>
+          <Ruler /> Technical brief (current version)
+        </Button>
+      )}
     </div>
   );
 }
@@ -71,6 +99,7 @@ export function ReviewPanel({ concept }: { concept: Concept }) {
           </ol>
         ) : <p className="text-[12px] text-muted-foreground">No review activity yet.</p>}
       </div>
+      <NextSteps concept={concept} />
     </div>
   );
 }

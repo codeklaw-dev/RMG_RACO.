@@ -12,7 +12,8 @@ export function Reveal({ children, className, stagger = 0.05 }: { children: Reac
     () => {
       const mm = gsap.matchMedia();
       mm.add("(prefers-reduced-motion: no-preference)", () => {
-        gsap.from(ref.current!.children, { autoAlpha: 0, y: 12, duration: 0.5, ease: "power2.out", stagger, clearProps: "all" });
+        if (!ref.current?.children.length) return;
+        gsap.from(ref.current.children, { autoAlpha: 0, y: 12, duration: 0.5, ease: "power2.out", stagger, clearProps: "all" });
       });
       return () => mm.revert();
     },
